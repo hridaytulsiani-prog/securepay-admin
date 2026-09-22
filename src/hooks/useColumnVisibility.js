@@ -12,7 +12,9 @@ export function useColumnVisibility(storageKey, columns) {
       // Filter saved keys against the current column list so a stale/renamed
       // column from an older version of the app can't leave a broken entry.
       if (Array.isArray(saved) && saved.length) {
-        return allKeys.filter((k) => saved.includes(k))
+        const savedVisibleKeys = allKeys.filter((k) => saved.includes(k))
+        const newKeys = allKeys.filter((k) => !saved.includes(k))
+        return [...savedVisibleKeys, ...newKeys]
       }
     } catch {
       // ignore malformed storage

@@ -53,6 +53,15 @@ export function AuthProvider({ children }) {
       .finally(() => setLoading(false))
   }, [])
 
+  useEffect(() => {
+    function handleAuthExpired() {
+      setAdmin(null)
+    }
+
+    window.addEventListener('securepay-admin-auth-expired', handleAuthExpired)
+    return () => window.removeEventListener('securepay-admin-auth-expired', handleAuthExpired)
+  }, [])
+
   const login = useCallback(async (username, password) => {
     const data = await api.login(username, password)
     setToken(data.token)
