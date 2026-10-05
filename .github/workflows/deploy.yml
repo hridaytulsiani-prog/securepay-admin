@@ -1,0 +1,71 @@
+name: Deploy securepay-admin to Cloudflare Pages
+
+on:
+  push:
+    branches:
+      - production
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # Vite 8 needs Node ^20.19 or >=22.12 (the 18.x used by older client
+        # projects will fail on `vite build`).
+        node-version: [22.x]
+
+    steps:
+      # setup s5cmd
+      - name: Setup s5cmd
+        uses: peak/action-setup-s5cmd@main
+        with:
+          version: v2.0.0
+
+      # checkout the repository content to github runner
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # setup nodejs environment
+      - name: Setup Node.js environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      # install dependencies (package-lock.json is committed, so ci is exact)
+      - name: Install dependencies
+        run: npm ci
+
+      # build the react app (Vite writes to dist/, not build/)
+      # Vite inlines VITE_* values at BUILD time. This app reads only one.
+      - name: Build
+        run: npm run build
+        env:
+          # REQUIRED. Backend (Django) base URL, e.g. https://api.example.com
+          # with no trailing slash. Left unset the app falls back to
+          # http://127.0.0.1:8000, which cannot work from a visitor's browser.
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+
+      - name: Upload to S3
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.DEPLOY_APP_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.DEPLOY_APP_AWS_SECRET_ACCESS_KEY}}
+          S3_ENDPOINT_URL: ${{ secrets.DEPLOY_APP_S3_ENDPOINT }}
+        run: |
+          s5cmd sync 'dist/' 's3://react-deployer-bucket/securepay_admin/'
+
+      - name: Download all files from S3
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.DEPLOY_APP_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.DEPLOY_APP_AWS_SECRET_ACCESS_KEY}}
+          S3_ENDPOINT_URL: ${{ secrets.DEPLOY_APP_S3_ENDPOINT }}
+        run: |
+          s5cmd sync 's3://react-deployer-bucket/securepay_admin/*' 'dist/'
+
+      - name: Publish to cloudflare pages
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.DEPLOY_APP_CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.DEPLOY_APP_CLOUDFLARE_ACCOUNT_ID }}
+          projectName: securepay-admin
+          directory: dist
