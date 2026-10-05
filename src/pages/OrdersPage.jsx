@@ -4,8 +4,100 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api/client'
-import ColumnPicker from '../components/ColumnPicker'
 import { useColumnVisibility } from '../hooks/useColumnVisibility'
+import blueDartLogo from '../../../securepay-client/src/assets/couriers/blue-dart-real.png'
+import delhiveryLogo from '../../../securepay-client/src/assets/couriers/delhivery-real.png'
+import dtdcLogo from '../../../securepay-client/src/assets/couriers/dtdc-real.png'
+import ecomExpressLogo from '../../../securepay-client/src/assets/couriers/ecom-express.png'
+import ekartLogo from '../../../securepay-client/src/assets/couriers/ekart-real.png'
+import shadowfaxLogo from '../../../securepay-client/src/assets/couriers/shadowfax.svg'
+import shiprocketLogo from '../../../securepay-client/src/assets/couriers/shiprocket-real.png'
+import xpressbeesLogo from '../../../securepay-client/src/assets/couriers/xpressbees-real.png'
+
+const courierLogos = [
+  { keys: ['blue dart', 'bluedart', 'blue_dart'], label: 'Blue Dart', logo: blueDartLogo },
+  { keys: ['delhivery'], label: 'Delhivery', logo: delhiveryLogo },
+  { keys: ['dtdc'], label: 'DTDC', logo: dtdcLogo },
+  { keys: ['ecom express', 'ecomexpress', 'ecom_express'], label: 'Ecom Express', logo: ecomExpressLogo },
+  { keys: ['ekart'], label: 'Ekart', logo: ekartLogo },
+  { keys: ['shadowfax', 'shadow fax'], label: 'Shadowfax', logo: shadowfaxLogo },
+  { keys: ['shiprocket'], label: 'Shiprocket', logo: shiprocketLogo },
+  { keys: ['xpressbees', 'xpress bees', 'xpress_bees'], label: 'Xpressbees', logo: xpressbeesLogo },
+]
+
+function normalizeCourierName(courier) {
+  return String(courier || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+}
+
+function CourierLogoCell({ courier }) {
+  const normalized = normalizeCourierName(courier)
+  const match = courierLogos.find((item) => item.keys.some((key) => normalizeCourierName(key) === normalized))
+
+  if (!courier) return <span className="courier-logo-empty">-</span>
+  if (!match) return <span className="courier-logo-fallback">{courier}</span>
+
+  return (
+    <span className="courier-logo-cell" title={match.label}>
+      <img src={match.logo} alt={`${match.label} logo`} />
+    </span>
+  )
+}
+
+function formatAmount(value) {
+  const amount = Number(value)
+  return Number.isFinite(amount) ? `₹${amount.toLocaleString('en-IN')}` : '-'
+}
+
+function formatDateTime(value) {
+  if (!value) return '-'
+  return new Date(value).toLocaleString('en-GB', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  })
+}
+
+// Couriers TrackParcel supports for the one-click "Track" button below —
+// everything else falls back to the per-courier "-otp" manual check page.
+const TRACKPARCEL_SUPPORTED_COURIERS = new Set(['blue dart', 'bluedart', 'delhivery', 'dtdc', 'shadowfax', 'xpressbees'])
+
+function isTrackParcelSupported(courier) {
+  return TRACKPARCEL_SUPPORTED_COURIERS.has(normalizeCourierName(courier))
+}
+
+function TrackParcelTrackButton({ awb, courier }) {
+  const [tracking, setTracking] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleTrack() {
+    setTracking(true)
+    setError('')
+    try {
+      await api.trackParcel(awb)
+      window.dispatchEvent(new Event('securepay-orders-refresh'))
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setTracking(false)
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      className="table-action-link shipsagar-track-button"
+      onClick={handleTrack}
+      disabled={tracking}
+      title={error || `Refresh ${courier} status from TrackParcel`}
+    >
+      {tracking ? 'Checking...' : 'Track'}
+    </button>
+  )
+}
 
 // Column defs double as both the table header/cell renderer and the list
 // ColumnPicker offers to show/hide — keeping them in one array avoids the
@@ -14,16 +106,11 @@ const COLUMNS = [
   {
     key: 'order_id',
     label: 'Order ID',
-    render: (row) => (
-      <>
-        <div className="cell-strong">{row.merchant_order_id}</div>
-        <div className="cell-muted">{row.pa_order_id}</div>
-      </>
-    ),
+    render: (row) => <span className="cell-strong cell-single-line">{row.merchant_order_id || row.pa_order_id || '-'}</span>,
   },
   {
     key: 'awb',
-    label: 'AWB Number',
+    label: 'AWB',
     render: (row) => <span className="cell-strong">{row.shipment_id__awb || '-'}</span>,
   },
   {
@@ -36,7 +123,11 @@ const COLUMNS = [
       </>
     ),
   },
-  { key: 'customer', label: 'Customer', render: (row) => row.customer_info__customer_name },
+  {
+    key: 'customer',
+    label: 'Customer',
+    render: (row) => <span className="cell-single-line">{row.customer_info__customer_name}</span>,
+  },
   {
     key: 'contact',
     label: 'Contact',
@@ -47,22 +138,30 @@ const COLUMNS = [
       </>
     ),
   },
-  { key: 'amount', label: 'Amount', render: (row) => `${row.order_currency} ${row.order_amount}` },
+  { key: 'amount', label: 'Amount', render: (row) => <span className="cell-single-line">{formatAmount(row.order_amount)}</span> },
   {
     key: 'status',
-    label: 'Status',
+    label: 'Payment Status',
     render: (row) => (
-      <span className={`status-pill status-${(row.order_status || '').toLowerCase()}`}>{row.order_status}</span>
+      <span className="table-chip-cell">
+        <span className={`status-pill status-${(row.order_status || '').toLowerCase()}`}>{row.order_status}</span>
+      </span>
     ),
   },
   {
-    key: 'shipment',
+    key: 'courier',
+    label: 'Courier',
+    render: (row) => <CourierLogoCell courier={row.shipment_id__courier} />,
+  },
+  {
+    key: 'shipment_status',
     label: 'Shipment Status',
     render: (row) => (
-      <>
-        <div className="cell-muted">{row.shipment_id__courier || '-'}</div>
-        <div className="cell-muted">{row.shipment_id__status || ''}</div>
-      </>
+      <span className="table-chip-cell">
+        <span className={`status-pill status-${(row.shipment_id__status || '').toLowerCase()}`}>
+          {row.shipment_id__status || '-'}
+        </span>
+      </span>
     ),
   },
   {
@@ -70,22 +169,22 @@ const COLUMNS = [
     label: 'Shipment Label',
     render: (row) => {
       if (row.shipment_label_status === 'approved') {
-        return <span className="status-pill status-approved">Approved</span>
+        return <span className="table-chip-cell"><span className="status-pill status-approved">Approved</span></span>
       }
       if (row.shipment_label_status === 'processing') {
-        return <span className="status-pill status-pending">Under Review</span>
+        return <span className="table-chip-cell"><span className="status-pill status-pending">Under Review</span></span>
       }
       if (row.shipment_label_status === 'not_approved') {
-        return <span className="status-pill status-not_approved">Not Approved</span>
+        return <span className="table-chip-cell"><span className="status-pill status-not_approved">Not Approved</span></span>
       }
-      return <span className="status-pill status-missing">Yet to Upload</span>
+      return <span className="table-chip-cell"><span className="status-pill status-missing">Yet to Upload</span></span>
     },
   },
   {
     key: 'shipment_label_pdf',
     label: 'PDF Name',
     render: (row) => (
-      <span className="cell-muted">
+      <span className="cell-muted cell-single-line">
         {['approved', 'not_approved'].includes(row.shipment_label_status) ? row.shipment_label_file_name || '-' : '-'}
       </span>
     ),
@@ -101,27 +200,40 @@ const COLUMNS = [
     key: 'verification_status',
     label: 'Verification Status',
     render: (row) => {
-      if (!row.shipment_id__awb) return <span className="cell-muted">-</span>
+      if (!row.shipment_id__awb) return <span className="table-chip-cell"><span className="cell-muted">-</span></span>
       if (row.verification_status === 'VERIFIED') {
-        return <span className="status-pill status-success">Verified</span>
+        return <span className="table-chip-cell"><span className="status-pill status-success">Verified</span></span>
       }
       if (row.verification_status === 'NOT_VERIFIED') {
-        return <span className="status-pill status-failed">Not Verified</span>
+        return <span className="table-chip-cell"><span className="status-pill status-failed">Not Verified</span></span>
       }
-      return <span className="status-pill status-pending">Pending Check</span>
+      return <span className="table-chip-cell"><span className="status-pill status-pending">Pending Check</span></span>
     },
   },
   {
     key: 'track',
     label: 'Track',
-    render: (row) =>
-      row.shipment_id__awb ? (
-        <Link className="table-action-link" to={`/dashboard/delhivery-otp?awb=${encodeURIComponent(row.shipment_id__awb)}`}>
+    render: (row) => {
+      const courier = String(row.shipment_id__courier || '').toLowerCase()
+      if (isTrackParcelSupported(courier)) {
+        return row.shipment_id__awb ? (
+          <TrackParcelTrackButton awb={row.shipment_id__awb} courier={row.shipment_id__courier} />
+        ) : <span className="cell-muted">-</span>
+      }
+      const trackingPath = courier.includes('shiprocket')
+        ? 'shiprocket-otp'
+        : courier.includes('ekart')
+          ? 'ekart-otp'
+          : 'delhivery-otp'
+
+      return row.shipment_id__awb ? (
+        <Link className="table-action-link" to={`/dashboard/${trackingPath}?awb=${encodeURIComponent(row.shipment_id__awb)}`}>
           Track
         </Link>
       ) : (
         <span className="cell-muted">-</span>
-      ),
+      )
+    },
   },
 ]
 
@@ -137,12 +249,15 @@ export default function OrdersPage() {
     merchantId: '',
     dateFrom: '',
     dateTo: '',
+    courier: '',
+    deliveryStatus: '',
     shipmentLabelStatus: '',
   })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  const pageNumbers = Array.from({ length: totalPages }, (_, index) => index + 1)
 
-  const { visible, toggle, showAll, hideAll, visibleColumns } = useColumnVisibility(
+  const { visibleColumns } = useColumnVisibility(
     'securepay_admin_orders_columns',
     COLUMNS
   )
@@ -159,6 +274,8 @@ export default function OrdersPage() {
         merchant_id: filters.merchantId,
         date_from: filters.dateFrom,
         date_to: filters.dateTo,
+        courier: filters.courier,
+        delivery_status: filters.deliveryStatus,
         shipment_label_status: filters.shipmentLabelStatus,
       })
       .then((data) => {
@@ -173,6 +290,12 @@ export default function OrdersPage() {
 
   useEffect(() => {
     load()
+  }, [load])
+
+  useEffect(() => {
+    const refreshOrders = () => load()
+    window.addEventListener('securepay-orders-refresh', refreshOrders)
+    return () => window.removeEventListener('securepay-orders-refresh', refreshOrders)
   }, [load])
 
   useEffect(() => {
@@ -203,16 +326,26 @@ export default function OrdersPage() {
       merchantId: '',
       dateFrom: '',
       dateTo: '',
+      courier: '',
+      deliveryStatus: '',
       shipmentLabelStatus: '',
     })
   }
 
   return (
-    <div>
-      <h1>SecurePay - Orders Dashboard</h1>
-
-      <div className="panel-card">
-        <form className="toolbar" onSubmit={handleSearch}>
+    <div className="orders-page">
+      <div className="panel-card orders-surface">
+        <div className="section-title orders-section-title">
+          <div className="section-title-left">
+            <span className="orders-section-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M6.5 3.5h11A2.5 2.5 0 0 1 20 6v12a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 18V6a2.5 2.5 0 0 1 2.5-2.5Zm2 4a1 1 0 0 0 0 2h7a1 1 0 1 0 0-2h-7Zm0 3.5a1 1 0 1 0 0 2h7a1 1 0 0 0 0-2h-7Zm0 3.5a1 1 0 0 0 0 2h4.5a1 1 0 0 0 0-2H8.5Z" />
+              </svg>
+            </span>
+            Order details
+          </div>
+        </div>
+        <form className="toolbar orders-toolbar" onSubmit={handleSearch}>
           <div className="toolbar-field">
             <label htmlFor="search">Search orders:</label>
             <input id="search" name="search" placeholder="order id, customer name, merchant…" defaultValue={q} />
@@ -280,7 +413,35 @@ export default function OrdersPage() {
               <option value="missing">Yet to Upload</option>
             </select>
           </div>
-          <button type="submit">Search</button>
+          <div className="toolbar-field">
+            <label htmlFor="courier">Courier:</label>
+            <select id="courier" value={filters.courier} onChange={(e) => handleFilterChange('courier', e.target.value)}>
+              <option value="">All couriers</option>
+              <option value="Delhivery">Delhivery</option>
+              <option value="DTDC">DTDC</option>
+              <option value="Shiprocket">Shiprocket</option>
+              <option value="Ekart">Ekart</option>
+              <option value="Shadowfax">Shadowfax</option>
+              <option value="Xpressbees">Xpressbees</option>
+              <option value="Blue Dart">Blue Dart</option>
+            </select>
+          </div>
+          <div className="toolbar-field">
+            <label htmlFor="delivery-status">Delivery status:</label>
+            <select
+              id="delivery-status"
+              value={filters.deliveryStatus}
+              onChange={(e) => handleFilterChange('deliveryStatus', e.target.value)}
+            >
+              <option value="">All statuses</option>
+              <option value="CREATED">Created</option>
+              <option value="IN_TRANSIT">In transit</option>
+              <option value="OUT_FOR_DELIVERY">Out for delivery</option>
+              <option value="DELIVERED">Delivered</option>
+              <option value="RTO">RTO</option>
+              <option value="CANCELLED">Cancelled</option>
+            </select>
+          </div>
           <button type="button" onClick={load}>
             Refresh
           </button>
@@ -288,25 +449,20 @@ export default function OrdersPage() {
             Clear
           </button>
         </form>
-      </div>
-
       {error && <div className="error-banner">{error}</div>}
 
-      <div className="panel-card">
-        <div className="section-title">
-          <div className="section-title-left">
-            Orders <span className="count-badge">{total}</span>
-          </div>
-          <ColumnPicker
-            columns={COLUMNS}
-            visible={visible}
-            onToggle={toggle}
-            onShowAll={showAll}
-            onHideAll={hideAll}
-          />
+      <div className="section-title table-section-title">
+        <div className="section-title-left">
+          <span className="orders-section-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path d="M6.5 3.5h11A2.5 2.5 0 0 1 20 6v12a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 18V6a2.5 2.5 0 0 1 2.5-2.5Zm2 4a1 1 0 0 0 0 2h7a1 1 0 1 0 0-2h-7Zm0 3.5a1 1 0 1 0 0 2h7a1 1 0 1 0 0-2h-7Zm0 3.5a1 1 0 1 0 0 2h4.5a1 1 0 1 0 0-2H8.5Z" />
+            </svg>
+          </span>
+          Order details
         </div>
+      </div>
 
-        <div className="table-wrap">
+      <div className="table-wrap">
           <table>
             <thead>
               <tr>
@@ -339,19 +495,28 @@ export default function OrdersPage() {
               )}
             </tbody>
           </table>
-        </div>
+      </div>
 
-        <div className="pagination">
-          <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-            Prev
-          </button>
-          <span>
-            Page {page} of {totalPages}
-          </span>
-          <button disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
-            Next
-          </button>
-        </div>
+      <div className="orders-pagination">
+          <span className="orders-pagination-summary">Showing {rows.length} of {total} payment orders.</span>
+          <div className="orders-pagination-controls" aria-label="Payment order pagination">
+            <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+              Previous
+            </button>
+            {pageNumbers.map((pageNumber) => (
+              <button
+                key={pageNumber}
+                className={pageNumber === page ? 'is-active' : ''}
+                onClick={() => setPage(pageNumber)}
+              >
+                {pageNumber}
+              </button>
+            ))}
+            <button disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+              Next
+            </button>
+          </div>
+      </div>
       </div>
     </div>
   )

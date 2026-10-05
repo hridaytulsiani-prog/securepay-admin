@@ -26,7 +26,7 @@ export default function Modal({ title, onClose, children, width = 480 }) {
         <div className="modal-header">
           <h3>{title}</h3>
           <button type="button" className="modal-close" onClick={onClose} aria-label="Close">
-            ×
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
           </button>
         </div>
         <div className="modal-body">{children}</div>

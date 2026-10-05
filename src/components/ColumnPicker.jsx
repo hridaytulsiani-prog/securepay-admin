@@ -2,7 +2,7 @@
 // Paired with the useColumnVisibility hook, which owns the actual state.
 import { useEffect, useRef, useState } from 'react'
 
-export default function ColumnPicker({ columns, visible, onToggle, onShowAll, onHideAll }) {
+export default function ColumnPicker({ columns, visible, onToggle, onShowAll, onHideAll, showCount = true }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
 
@@ -20,7 +20,7 @@ export default function ColumnPicker({ columns, visible, onToggle, onShowAll, on
   return (
     <div className="column-picker" ref={ref}>
       <button type="button" className="column-picker-toggle" onClick={() => setOpen((v) => !v)}>
-        Columns ({visible.length}/{columns.length})
+        {showCount ? `Columns (${visible.length}/${columns.length})` : 'Columns'}
       </button>
       {open && (
         <div className="column-picker-menu">

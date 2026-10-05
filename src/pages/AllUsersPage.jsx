@@ -16,6 +16,7 @@ export default function AllUsersPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [accessUser, setAccessUser] = useState(null)
+  const [search, setSearch] = useState('')
 
   const load = useCallback(() => {
     setLoading(true)
@@ -66,19 +67,45 @@ export default function AllUsersPage() {
     }
   }
 
-  return (
-    <div>
-      <h1>SecurePay - All Users</h1>
+  function handleSearch(event) {
+    event.preventDefault()
+    setSearch(event.target.elements.search.value.trim())
+  }
 
-      <div className="panel-card">
-        <div className="section-title">
+  const filteredUsers = users.filter((user) => {
+    const haystack = `${user.username || ''} ${user.email || ''} ${user.role || ''}`.toLowerCase()
+    return haystack.includes(search.toLowerCase())
+  })
+
+  return (
+    <div className="users-page">
+      <div className="panel-card users-surface">
+        <div className="section-title users-section-title">
           <div className="section-title-left">
-            Admin Users <span className="count-badge">{users.length}</span>
+            <span className="orders-section-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M8.5 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm7-1.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM3.5 18.5a5 5 0 0 1 10 0v1h-10v-1Zm11 1v-1a4 4 0 0 0-1.1-2.75 4.5 4.5 0 0 1 7.1 3.75h-6Z" />
+              </svg>
+            </span>
+            Users <span className="count-badge">{users.length}</span>
           </div>
-          <button type="button" className="btn-secondary" onClick={load}>
+        </div>
+
+        <form className="toolbar users-toolbar" onSubmit={handleSearch}>
+          <div className="toolbar-field">
+            <label htmlFor="user-search">Search users:</label>
+            <input
+              id="user-search"
+              name="search"
+              placeholder="username, email, role..."
+              defaultValue={search}
+            />
+          </div>
+          <button type="submit">Search</button>
+          <button type="button" className="users-refresh-button" onClick={load}>
             Refresh
           </button>
-        </div>
+        </form>
 
         {error && <div className="error-banner">{error}</div>}
         {success && <div className="success-banner users-success">{success}</div>}
@@ -100,12 +127,12 @@ export default function AllUsersPage() {
                 <tr>
                   <td colSpan={6} className="empty-row">Loading users...</td>
                 </tr>
-              ) : users.length === 0 ? (
+              ) : filteredUsers.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="empty-row">No admin users found.</td>
                 </tr>
               ) : (
-                users.map((user) => (
+                filteredUsers.map((user) => (
                   <tr key={user.id}>
                     <td>
                       <div className="cell-strong">{user.username}</div>

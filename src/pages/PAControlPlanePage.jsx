@@ -19,7 +19,7 @@ function statusClass(value) {
 }
 
 function formatMoney(order) {
-  return `${order?.currency || 'INR'} ${order?.amount || '0.00'}`
+  return `₹${order?.amount || '0.00'}`
 }
 
 function decisionReason(order) {
@@ -111,11 +111,20 @@ export default function PAControlPlanePage() {
 
   return (
     <div className="pa-page">
-      <h1>SecurePay - PA Control Plane</h1>
+      <div className="panel-card pa-surface">
+        <div className="section-title pa-section-title">
+          <div className="section-title-left">
+            <span className="orders-section-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M6.5 3.5h11A2.5 2.5 0 0 1 20 6v12a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 18V6a2.5 2.5 0 0 1 2.5-2.5Zm2 4a1 1 0 0 0 0 2h7a1 1 0 1 0 0-2h-7Zm0 3.5a1 1 0 1 0 0 2h7a1 1 0 0 0 0-2h-7Zm0 3.5a1 1 0 0 0 0 2h4.5a1 1 0 0 0 0-2H8.5Z" />
+              </svg>
+            </span>
+            PA order control
+          </div>
+        </div>
 
-      <div className="panel-card">
         <form
-          className="toolbar"
+          className="toolbar pa-toolbar"
           onSubmit={(event) => {
             event.preventDefault()
             load()
@@ -135,15 +144,14 @@ export default function PAControlPlanePage() {
             Refresh
           </button>
         </form>
-      </div>
 
       {error ? <div className="error-banner">{error}</div> : null}
       {success ? <div className="success-banner">{success}</div> : null}
 
-      <section className="panel-card">
-        <div className="section-title">
+      <section className="pa-section pa-orders-section">
+        <div className="section-title pa-table-title">
           <div className="section-title-left">
-            PA Orders <span className="count-badge">{orders.length}</span>
+            PA orders <span className="count-badge">{orders.length}</span>
           </div>
         </div>
         <div className="table-wrap">
@@ -215,7 +223,7 @@ export default function PAControlPlanePage() {
 
       {selected ? (
         <>
-          <section className="panel-card">
+          <section className="pa-section">
             <div className="section-title">Selected Order Proof</div>
             <div className="pa-state-grid">
               {[
@@ -242,7 +250,7 @@ export default function PAControlPlanePage() {
             </div>
           </section>
 
-          <section className="panel-card">
+          <section className="pa-section">
             <div className="section-title">Final Financial Command</div>
             <div className="pa-actions-row">
               <button type="button" onClick={providerAccept} disabled={commandDisabled}>
@@ -300,6 +308,7 @@ export default function PAControlPlanePage() {
           </section>
         </>
       ) : null}
+      </div>
     </div>
   )
 }

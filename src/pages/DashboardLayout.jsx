@@ -18,7 +18,6 @@ export default function DashboardLayout() {
       <header className="topbar">
         <div className="brand-block">
           <div className="brand">SecurePay</div>
-          <div className="brand-subtitle">Logistics Console</div>
         </div>
         <nav className="topnav">
           {hasPermission(admin, 'dashboard.view') && (
@@ -54,13 +53,8 @@ export default function DashboardLayout() {
             </NavLink>
           )}
           {hasPermission(admin, 'courier.check') && (
-            <NavLink to="/dashboard/delhivery-otp" className={({ isActive }) => (isActive ? 'active' : '')}>
-              Delhivery OTP
-            </NavLink>
-          )}
-          {hasPermission(admin, 'courier.check') && (
-            <NavLink to="/dashboard/dhl-bluedart-otp" className={({ isActive }) => (isActive ? 'active' : '')}>
-              DHL / Blue Dart OTP
+            <NavLink to="/dashboard/courier-otp" className={({ isActive }) => (isActive ? 'active' : '')}>
+              Courier
             </NavLink>
           )}
           {hasPermission(admin, 'audit.view') && (
@@ -70,7 +64,7 @@ export default function DashboardLayout() {
           )}
           {hasPermission(admin, 'users.manage') && (
             <NavLink to="/dashboard/all-users" className={({ isActive }) => (isActive ? 'active' : '')}>
-              All Users
+              Users
             </NavLink>
           )}
           {hasPermission(admin, 'users.manage') && (
@@ -78,9 +72,22 @@ export default function DashboardLayout() {
               Merchants
             </NavLink>
           )}
+          {hasPermission(admin, 'contact_messages.manage') && (
+            <NavLink to="/dashboard/messages" className={({ isActive }) => (isActive ? 'active' : '')}>
+              Messages
+            </NavLink>
+          )}
         </nav>
         <div className="topbar-actions">
-          <span className="admin-name">{admin?.username} {admin?.role_label ? `(${admin.role_label})` : ''}</span>
+          <div className="admin-profile">
+            <span className="admin-avatar" aria-hidden="true">
+              {(admin?.username || 'A').slice(0, 1).toUpperCase()}
+            </span>
+            <div className="admin-profile-copy">
+              <strong>{admin?.username || 'Admin'}</strong>
+              <span className="admin-role-tag">{admin?.role_label || admin?.role || 'Admin'}</span>
+            </div>
+          </div>
           <button onClick={handleLogout}>Logout</button>
         </div>
       </header>

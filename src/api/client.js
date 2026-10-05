@@ -90,6 +90,28 @@ async function request(path, { method = 'GET', body, params, tokenType = 'admin'
   return data
 }
 
+async function trackingRequest(path) {
+  const url = new URL(`${API_BASE_URL}/tracking${path}`, window.location.origin)
+  const token = getToken()
+  const headers = {}
+  if (token) headers.Authorization = `Bearer ${token}`
+
+  const res = await fetch(url.toString(), { headers })
+  let data = null
+  try {
+    data = await res.json()
+  } catch {
+    data = null
+  }
+
+  if (!res.ok) {
+    const providerDetails = data && (data.details || data.upstream_response)
+    throw new Error(providerDetails || (data && data.error) || `Request failed with status ${res.status}`)
+  }
+
+  return data
+}
+
 // One method per backend endpoint — see adminpanel/urls.py for the routes.
 async function uploadFile(path, file, { tokenType = 'admin' } = {}) {
   const url = new URL(`${API_BASE_URL}/adminpanel${path}`, window.location.origin)
@@ -128,6 +150,7 @@ async function uploadFile(path, file, { tokenType = 'admin' } = {}) {
 }
 
 export const api = {
+  trackParcel: (awb) => trackingRequest(`/track_shipment/${encodeURIComponent(awb)}/`),
   login: (username, password) => request('/login/', { method: 'POST', body: { username, password } }),
   logout: () => request('/logout/', { method: 'POST' }),
   me: () => request('/me/'),
@@ -165,6 +188,9 @@ export const api = {
     request('/partner/aggregator/oversight/', { params, tokenType: 'partner' }),
   enquiries: (params) => request('/enquiries/', { params }),
   suspiciousPdfs: (params) => request('/suspicious-pdfs/', { params }),
+  contactMessages: (params) => request('/contact-messages/', { params }),
+  replyContactMessage: (messageId, body) => request(`/contact-messages/${messageId}/reply/`, { method: 'POST', body }),
+  updateContactMessage: (messageId, body) => request(`/contact-messages/${messageId}/`, { method: 'PATCH', body }),
   enquiryNotes: (enquiryId) => request(`/enquiries/${enquiryId}/notes/`),
   addEnquiryNote: (enquiryId, note) =>
     request(`/enquiries/${enquiryId}/notes/`, { method: 'POST', body: { note } }),
@@ -188,6 +214,16 @@ export const api = {
     request('/courier-verification/bluedart/', { method: 'POST', body: { awb } }),
   checkDhlBlueDartOtp: (awb) =>
     request('/courier-verification/dhl-bluedart/', { method: 'POST', body: { awb } }),
+  checkXpressbeesOtp: (awb) =>
+    request('/courier-verification/xpressbees/', { method: 'POST', body: { awb } }),
+  checkDtdcOtp: (awb) =>
+    request('/courier-verification/dtdc/', { method: 'POST', body: { awb } }),
+  checkShiprocketOtp: (awb) =>
+    request('/courier-verification/shiprocket/', { method: 'POST', body: { awb } }),
+  checkEkartOtp: (awb) =>
+    request('/courier-verification/ekart/', { method: 'POST', body: { awb } }),
+  checkShadowfaxOtp: (awb) =>
+    request('/courier-verification/shadowfax/', { method: 'POST', body: { awb } }),
   checkBlueDartLabelOtpEvidence: (file) =>
     uploadFile('/courier-verification/bluedart/label-otp-evidence/', file),
   saveBlueDartVerificationDecision: (awb, decision, sourceCheckId) =>

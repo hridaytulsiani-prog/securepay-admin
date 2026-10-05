@@ -29,8 +29,8 @@ export default function LoginPage() {
   return (
     <div className="auth-shell">
       <form className="auth-card" onSubmit={handleSubmit}>
-        <h1>SecurePay Admin</h1>
-        <p className="auth-subtitle">Sign in to manage orders and enquiries</p>
+        <h1>Sign In</h1>
+        <p className="auth-subtitle">Access your SecurePay admin console.</p>
 
         <label htmlFor="username">Username</label>
         <input

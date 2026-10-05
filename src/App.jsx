@@ -9,6 +9,12 @@ import NeedsAttentionPage from './pages/NeedsAttentionPage'
 import EnquiriesPage from './pages/EnquiriesPage'
 import DelhiveryOtpPage from './pages/DelhiveryOtpPage'
 import DhlBlueDartOtpPage from './pages/DhlBlueDartOtpPage'
+import XpressbeesOtpPage from './pages/XpressbeesOtpPage'
+import DtdcOtpPage from './pages/DtdcOtpPage'
+import ShiprocketOtpPage from './pages/ShiprocketOtpPage'
+  import EkartOtpPage from './pages/EkartOtpPage'
+import ShadowfaxOtpPage from './pages/ShadowfaxOtpPage'
+import CourierOtpHubPage from './pages/CourierOtpHubPage'
 import OmniwareOversightPage from './pages/OmniwareOversightPage'
 import PAControlPlanePage from './pages/PAControlPlanePage'
 import PAEvidenceReportPage from './pages/PAEvidenceReportPage'
@@ -16,6 +22,7 @@ import AuditTrailPage from './pages/AuditTrailPage'
 import CreateAdminAccountPage from './pages/CreateAdminAccountPage'
 import AllUsersPage from './pages/AllUsersPage'
 import MerchantUsersPage from './pages/MerchantUsersPage'
+import ContactMessagesPage from './pages/ContactMessagesPage'
 import { OmniwarePartnerLoginPage, OmniwarePartnerPortal } from './pages/OmniwarePartnerPortal'
 
 export default function App() {
@@ -45,9 +52,16 @@ export default function App() {
           <Route path="pa-control" element={<PAControlPlanePage />} />
           <Route path="delhivery-otp" element={<DelhiveryOtpPage />} />
           <Route path="dhl-bluedart-otp" element={<DhlBlueDartOtpPage />} />
+          <Route path="xpressbees-otp" element={<XpressbeesOtpPage />} />
+          <Route path="dtdc-otp" element={<DtdcOtpPage />} />
+          <Route path="shiprocket-otp" element={<ShiprocketOtpPage />} />
+            <Route path="ekart-otp" element={<EkartOtpPage />} />
+          <Route path="shadowfax-otp" element={<ShadowfaxOtpPage />} />
+          <Route path="courier-otp" element={<CourierOtpHubPage />} />
           <Route path="audit-trail" element={<AuditTrailPage />} />
           <Route path="all-users" element={<AllUsersPage />} />
           <Route path="merchant-users" element={<MerchantUsersPage />} />
+          <Route path="messages" element={<ContactMessagesPage />} />
         </Route>
         {/* Any unknown path (including "/") just lands on the dashboard;
             ProtectedRoute will bounce to /login if there's no session. */}
