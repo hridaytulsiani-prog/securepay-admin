@@ -5,7 +5,6 @@
 // the final refund/pay-merchant decision + reason.
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../api/client'
-import ColumnPicker from '../components/ColumnPicker'
 import DecisionHistoryModal from '../components/DecisionHistoryModal'
 import NotesModal from '../components/NotesModal'
 import ResolutionModal from '../components/ResolutionModal'
@@ -115,7 +114,7 @@ export default function EnquiriesPage() {
   const [resolutionEnquiry, setResolutionEnquiry] = useState(null)
   const [historyEnquiry, setHistoryEnquiry] = useState(null)
 
-  const { visible, toggle, showAll, hideAll, visibleColumns } = useColumnVisibility(
+  const { visibleColumns } = useColumnVisibility(
     'securepay_admin_enquiries_columns',
     COLUMNS
   )
@@ -150,11 +149,20 @@ export default function EnquiriesPage() {
   const totalColSpan = visibleColumns.length + 2
 
   return (
-    <div>
-      <h1>SecurePay - Enquiries Dashboard</h1>
+    <div className="enquiries-page">
+      <div className="panel-card enquiries-surface">
+        <div className="section-title enquiries-section-title">
+          <div className="section-title-left">
+            <span className="orders-section-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M6.5 3.5h11A2.5 2.5 0 0 1 20 6v12a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 18V6a2.5 2.5 0 0 1 2.5-2.5Zm2 4a1 1 0 0 0 0 2h7a1 1 0 1 0 0-2h-7Zm0 3.5a1 1 0 1 0 0 2h7a1 1 0 1 0 0-2h-7Zm0 3.5a1 1 0 0 0 0 2h4.5a1 1 0 0 0 0-2H8.5Z" />
+              </svg>
+            </span>
+            Enquiry details
+          </div>
+        </div>
 
-      <div className="panel-card">
-        <form className="toolbar" onSubmit={handleSearch}>
+        <form className="toolbar enquiries-toolbar" onSubmit={handleSearch}>
           <div className="toolbar-field">
             <label htmlFor="search">Search enquiries:</label>
             <input id="search" name="search" placeholder="order id, customer name, phone…" defaultValue={q} />
@@ -180,25 +188,10 @@ export default function EnquiriesPage() {
             Refresh
           </button>
         </form>
-      </div>
 
       {error && <div className="error-banner">{error}</div>}
 
-      <div className="panel-card">
-        <div className="section-title">
-          <div className="section-title-left">
-            Enquiries <span className="count-badge">{total}</span>
-          </div>
-          <ColumnPicker
-            columns={COLUMNS}
-            visible={visible}
-            onToggle={toggle}
-            onShowAll={showAll}
-            onHideAll={hideAll}
-          />
-        </div>
-
-        <div className="table-wrap">
+        <div className="table-wrap enquiries-table-wrap">
           <table className="enquiries-table">
             <thead>
               <tr>
@@ -246,14 +239,16 @@ export default function EnquiriesPage() {
                       >
                         {RESOLUTION_LABELS[row.resolution_status] || 'Unresolved'}
                       </span>
-                      {canManageEnquiries && (
-                        <button type="button" className="link-button" onClick={() => setResolutionEnquiry(row)}>
-                          Update
+                      <div className="enquiries-action-buttons">
+                        {canManageEnquiries && (
+                          <button type="button" className="link-button" onClick={() => setResolutionEnquiry(row)}>
+                            Update
+                          </button>
+                        )}
+                        <button type="button" className="link-button" onClick={() => setHistoryEnquiry(row)}>
+                          History
                         </button>
-                      )}
-                      <button type="button" className="link-button" onClick={() => setHistoryEnquiry(row)}>
-                        History
-                      </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -262,7 +257,7 @@ export default function EnquiriesPage() {
           </table>
         </div>
 
-        <div className="pagination">
+        <div className="pagination enquiries-pagination">
           <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
             Prev
           </button>

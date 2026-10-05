@@ -124,11 +124,20 @@ export default function AuditTrailPage() {
   }
 
   return (
-    <div>
-      <h1>SecurePay - Audit Trail</h1>
+    <div className="audit-page">
+      <div className="panel-card audit-surface">
+        <div className="section-title audit-section-title">
+          <div className="section-title-left">
+            <span className="orders-section-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M6.5 3.5h11A2.5 2.5 0 0 1 20 6v12a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 18V6a2.5 2.5 0 0 1 2.5-2.5Zm2 4a1 1 0 0 0 0 2h7a1 1 0 1 0 0-2h-7Zm0 3.5a1 1 0 1 0 0 2h7a1 1 0 1 0 0-2h-7Zm0 3.5a1 1 0 0 0 0 2h4.5a1 1 0 0 0 0-2H8.5Z" />
+              </svg>
+            </span>
+            Audit logs
+          </div>
+        </div>
 
-      <div className="panel-card">
-        <form className="toolbar" onSubmit={handleSearch}>
+        <form className="toolbar audit-toolbar" onSubmit={handleSearch}>
           <div className="toolbar-field">
             <label htmlFor="search">Search logs:</label>
             <input id="search" name="search" placeholder="case id, action, actor, remarks..." defaultValue={q} />
@@ -200,7 +209,6 @@ export default function AuditTrailPage() {
               <option value={100}>100</option>
             </select>
           </div>
-          <button type="submit">Search</button>
           <button type="button" onClick={load}>
             Refresh
           </button>
@@ -208,16 +216,8 @@ export default function AuditTrailPage() {
             Clear
           </button>
         </form>
-      </div>
 
       {error && <div className="error-banner">{error}</div>}
-
-      <div className="panel-card">
-        <div className="section-title">
-          <div className="section-title-left">
-            Audit Logs <span className="count-badge">{total}</span>
-          </div>
-        </div>
 
         <div className="table-wrap audit-table-wrap">
           <table className="audit-table">
@@ -289,7 +289,7 @@ export default function AuditTrailPage() {
           </table>
         </div>
 
-        <div className="pagination">
+        <div className="pagination audit-pagination">
           <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
             Prev
           </button>

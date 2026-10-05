@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api } from '../api/client'
 
 function pretty(value) {
@@ -14,6 +14,7 @@ function badgeClass(value) {
 }
 
 export default function NeedsAttentionPage() {
+  const pageSize = 25
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [actingPdf, setActingPdf] = useState('')
@@ -21,6 +22,8 @@ export default function NeedsAttentionPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [q, setQ] = useState('')
+  const [page, setPage] = useState(1)
+  const [filters, setFilters] = useState({ type: '', pdfStatus: '', courierStatus: '' })
 
   const load = useCallback((options = {}) => {
     setLoading(true)
@@ -35,6 +38,20 @@ export default function NeedsAttentionPage() {
   useEffect(() => {
     load()
   }, [load])
+
+  const filteredRows = useMemo(() => rows.filter((row) => {
+    const typeMatches = !filters.type || row.type === filters.type
+    const pdfMatches = !filters.pdfStatus || row.pdf_status === filters.pdfStatus
+    const courierMatches = !filters.courierStatus || row.courier_status === filters.courierStatus
+    return typeMatches && pdfMatches && courierMatches
+  }), [filters, rows])
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize))
+  const pageNumbers = Array.from({ length: totalPages }, (_, index) => index + 1)
+  const visibleRows = filteredRows.slice((page - 1) * pageSize, page * pageSize)
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages)
+  }, [page, totalPages])
 
   async function decidePdf(row, decision) {
     if (!row.vaultpay_order_id) return
@@ -54,13 +71,28 @@ export default function NeedsAttentionPage() {
     }
   }
 
-  return (
-    <div>
-      <h1>SecurePay - Needs Attention</h1>
+  function clearFilters() {
+    setQ('')
+    setFilters({ type: '', pdfStatus: '', courierStatus: '' })
+    setPage(1)
+  }
 
-      <div className="panel-card">
+  return (
+    <div className="needs-attention-page">
+      <div className="needs-attention-surface">
+        <div className="section-title needs-attention-section-title">
+          <div className="section-title-left">
+            <span className="orders-section-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M6.5 3.5h11A2.5 2.5 0 0 1 20 6v12a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 18V6a2.5 2.5 0 0 1 2.5-2.5Zm2 4a1 1 0 0 0 0 2h7a1 1 0 1 0 0-2h-7Zm0 3.5a1 1 0 1 0 0 2h7a1 1 0 1 0 0-2h-7Zm0 3.5a1 1 0 0 0 0 2h4.5a1 1 0 0 0 0-2H8.5Z" />
+              </svg>
+            </span>
+            Attention review
+          </div>
+        </div>
+
         <form
-          className="toolbar"
+          className="toolbar needs-attention-toolbar"
           onSubmit={(event) => {
             event.preventDefault()
             load()
@@ -71,23 +103,45 @@ export default function NeedsAttentionPage() {
             <input
               id="needs-search"
               value={q}
-              onChange={(event) => setQ(event.target.value)}
+              onChange={(event) => {
+                setQ(event.target.value)
+                setPage(1)
+              }}
               placeholder="order id, merchant, customer, status"
             />
           </div>
-          <button type="submit">{loading ? 'Loading...' : 'Search'}</button>
+          <div className="toolbar-field">
+            <label htmlFor="needs-type">Attention type:</label>
+            <select id="needs-type" value={filters.type} onChange={(event) => { setFilters((current) => ({ ...current, type: event.target.value })); setPage(1) }}>
+              <option value="">All types</option>
+              <option value="missing_label">Shipment label missing</option>
+              <option value="pa_review">PA order under review</option>
+            </select>
+          </div>
+          <div className="toolbar-field">
+            <label htmlFor="needs-pdf-status">PDF status:</label>
+            <select id="needs-pdf-status" value={filters.pdfStatus} onChange={(event) => { setFilters((current) => ({ ...current, pdfStatus: event.target.value })); setPage(1) }}>
+              <option value="">All PDF statuses</option>
+              <option value="NOT_UPLOADED">Not uploaded</option>
+              <option value="NOT_FOUND">Not found</option>
+              <option value="NOT_APPROVED">Not approved</option>
+              <option value="PROCESSING">Processing</option>
+            </select>
+          </div>
+          <div className="toolbar-field">
+            <label htmlFor="needs-courier-status">Courier status:</label>
+            <select id="needs-courier-status" value={filters.courierStatus} onChange={(event) => { setFilters((current) => ({ ...current, courierStatus: event.target.value })); setPage(1) }}>
+              <option value="">All courier statuses</option>
+              <option value="NOT_AVAILABLE">Not available</option>
+              <option value="PENDING">Pending</option>
+              <option value="NOT_VERIFIED">Not verified</option>
+            </select>
+          </div>
           <button type="button" onClick={() => load({ sync: true })}>
             {loading ? 'Loading...' : 'Refresh'}
           </button>
+          <button type="button" onClick={clearFilters}>Clear</button>
         </form>
-      </div>
-
-      <div className="panel-card">
-        <div className="section-title">
-          <div className="section-title-left">
-            Attention Queue <span className="count-badge">{rows.length}</span>
-          </div>
-        </div>
 
         {error ? <div className="error-banner">{error}</div> : null}
         {success ? <div className="success-banner">{success}</div> : null}
@@ -109,9 +163,9 @@ export default function NeedsAttentionPage() {
             <tbody>
               {loading ? (
                 <tr><td colSpan={8} className="empty-row">Loading...</td></tr>
-              ) : rows.length === 0 ? (
+              ) : filteredRows.length === 0 ? (
                 <tr><td colSpan={8} className="empty-row">No items need attention.</td></tr>
-              ) : rows.map((row) => (
+              ) : visibleRows.map((row) => (
                 <tr key={row.id}>
                   <td>
                     <div className="cell-strong">{row.title}</div>
@@ -122,11 +176,10 @@ export default function NeedsAttentionPage() {
                     <div className="cell-muted">{row.merchant_email || ''}</div>
                   </td>
                   <td>
-                    <div className="cell-strong">{row.order_id || '-'}</div>
-                    <div className="cell-muted wrap-anywhere">{row.pa_order_id || ''}</div>
+                    <div className="cell-strong wrap-anywhere">{row.order_id || row.pa_order_id || '-'}</div>
                   </td>
                   <td>{row.customer_name || '-'}</td>
-                  <td>{row.currency ? `${row.currency} ${row.amount}` : '-'}</td>
+                  <td>{row.amount ? `₹${Number(row.amount).toLocaleString('en-IN')}` : '-'}</td>
                   <td>
                     {row.pdf_status ? (
                       <div className="needs-pdf-cell">
@@ -186,6 +239,30 @@ export default function NeedsAttentionPage() {
               ))}
             </tbody>
           </table>
+        </div>
+
+        <div className="needs-attention-pagination">
+          <span className="needs-attention-pagination-summary">
+            Showing {visibleRows.length} of {filteredRows.length} attention items.
+          </span>
+          <div className="needs-attention-pagination-controls" aria-label="Needs attention pagination">
+            <button type="button" disabled={page <= 1} onClick={() => setPage((current) => current - 1)}>
+              Previous
+            </button>
+            {pageNumbers.map((pageNumber) => (
+              <button
+                type="button"
+                key={pageNumber}
+                className={pageNumber === page ? 'is-active' : ''}
+                onClick={() => setPage(pageNumber)}
+              >
+                {pageNumber}
+              </button>
+            ))}
+            <button type="button" disabled={page >= totalPages} onClick={() => setPage((current) => current + 1)}>
+              Next
+            </button>
+          </div>
         </div>
       </div>
     </div>

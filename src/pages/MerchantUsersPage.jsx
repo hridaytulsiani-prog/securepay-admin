@@ -36,11 +36,20 @@ export default function MerchantUsersPage() {
   }
 
   return (
-    <div>
-      <h1>SecurePay - Merchant Users</h1>
+    <div className="merchant-users-page">
+      <div className="panel-card merchant-users-surface">
+        <div className="section-title merchant-users-section-title">
+          <div className="section-title-left">
+            <span className="orders-section-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M4 10.5V20h16v-9.5M3 10.5h18L19 4H5l-2 6.5ZM9 20v-5h6v5" />
+              </svg>
+            </span>
+            Merchants <span className="count-badge">{merchants.length}</span>
+          </div>
+        </div>
 
-      <div className="panel-card">
-        <form className="toolbar" onSubmit={handleSearch}>
+        <form className="toolbar merchant-users-toolbar" onSubmit={handleSearch}>
           <div className="toolbar-field">
             <label htmlFor="merchant-user-search">Search merchants:</label>
             <input
@@ -55,16 +64,8 @@ export default function MerchantUsersPage() {
             Refresh
           </button>
         </form>
-      </div>
 
       {error && <div className="error-banner">{error}</div>}
-
-      <div className="panel-card">
-        <div className="section-title">
-          <div className="section-title-left">
-            Merchants <span className="count-badge">{merchants.length}</span>
-          </div>
-        </div>
 
         <div className="table-wrap merchant-users-table-wrap">
           <table className="merchant-users-table">
