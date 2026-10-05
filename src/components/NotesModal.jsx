@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 import Modal from './Modal'
 import { api } from '../api/client'
 
-export default function NotesModal({ enquiry, onClose, onChanged }) {
+export default function NotesModal({ enquiry, onClose, onChanged, readOnly = false }) {
   const [notes, setNotes] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -87,7 +87,7 @@ export default function NotesModal({ enquiry, onClose, onChanged }) {
 
   return (
     <Modal title={`Notes — ${enquiry.enquiry_id}`} onClose={onClose} width={560}>
-      <form className="note-composer" onSubmit={handleAdd}>
+      {!readOnly && <form className="note-composer" onSubmit={handleAdd}>
         <textarea
           rows={3}
           placeholder="Add a note about this enquiry…"
@@ -97,7 +97,7 @@ export default function NotesModal({ enquiry, onClose, onChanged }) {
         <button type="submit" disabled={submitting || !draft.trim()}>
           Add note
         </button>
-      </form>
+      </form>}
 
       {error && <div className="error-banner">{error}</div>}
 
@@ -129,14 +129,14 @@ export default function NotesModal({ enquiry, onClose, onChanged }) {
                       {note.created_by || 'admin'} · {new Date(note.created_at).toLocaleString()}
                       {note.updated_at !== note.created_at ? ' (edited)' : ''}
                     </span>
-                    <span className="note-actions">
+                    {!readOnly && <span className="note-actions">
                       <button type="button" onClick={() => startEdit(note)}>
                         Edit
                       </button>
                       <button type="button" onClick={() => handleDelete(note.id)}>
                         Delete
                       </button>
-                    </span>
+                    </span>}
                   </div>
                 </>
               )}

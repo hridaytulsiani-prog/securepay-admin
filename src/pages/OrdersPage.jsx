@@ -2,6 +2,7 @@
 // adminpanel.api.v1.orders_views.AdminOrderListView (no merchant filter
 // applied by default, unlike the merchant-facing dashboard).
 import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../api/client'
 import ColumnPicker from '../components/ColumnPicker'
 import { useColumnVisibility } from '../hooks/useColumnVisibility'
@@ -19,6 +20,11 @@ const COLUMNS = [
         <div className="cell-muted">{row.pa_order_id}</div>
       </>
     ),
+  },
+  {
+    key: 'awb',
+    label: 'AWB Number',
+    render: (row) => <span className="cell-strong">{row.shipment_id__awb || '-'}</span>,
   },
   {
     key: 'merchant',
@@ -51,12 +57,37 @@ const COLUMNS = [
   },
   {
     key: 'shipment',
-    label: 'Shipment',
+    label: 'Shipment Status',
     render: (row) => (
       <>
-        <div className="cell-muted">{row.shipment_id__awb || '—'}</div>
+        <div className="cell-muted">{row.shipment_id__courier || '-'}</div>
         <div className="cell-muted">{row.shipment_id__status || ''}</div>
       </>
+    ),
+  },
+  {
+    key: 'shipment_label',
+    label: 'Shipment Label',
+    render: (row) => {
+      if (row.shipment_label_status === 'approved') {
+        return <span className="status-pill status-approved">Approved</span>
+      }
+      if (row.shipment_label_status === 'processing') {
+        return <span className="status-pill status-pending">Under Review</span>
+      }
+      if (row.shipment_label_status === 'not_approved') {
+        return <span className="status-pill status-not_approved">Not Approved</span>
+      }
+      return <span className="status-pill status-missing">Yet to Upload</span>
+    },
+  },
+  {
+    key: 'shipment_label_pdf',
+    label: 'PDF Name',
+    render: (row) => (
+      <span className="cell-muted">
+        {['approved', 'not_approved'].includes(row.shipment_label_status) ? row.shipment_label_file_name || '-' : '-'}
+      </span>
     ),
   },
   {
@@ -66,15 +97,48 @@ const COLUMNS = [
       <span className="cell-muted">{row.order_date ? new Date(row.order_date).toLocaleString() : '—'}</span>
     ),
   },
+  {
+    key: 'verification_status',
+    label: 'Verification Status',
+    render: (row) => {
+      if (!row.shipment_id__awb) return <span className="cell-muted">-</span>
+      if (row.verification_status === 'VERIFIED') {
+        return <span className="status-pill status-success">Verified</span>
+      }
+      if (row.verification_status === 'NOT_VERIFIED') {
+        return <span className="status-pill status-failed">Not Verified</span>
+      }
+      return <span className="status-pill status-pending">Pending Check</span>
+    },
+  },
+  {
+    key: 'track',
+    label: 'Track',
+    render: (row) =>
+      row.shipment_id__awb ? (
+        <Link className="table-action-link" to={`/dashboard/delhivery-otp?awb=${encodeURIComponent(row.shipment_id__awb)}`}>
+          Track
+        </Link>
+      ) : (
+        <span className="cell-muted">-</span>
+      ),
+  },
 ]
 
 export default function OrdersPage() {
   const [rows, setRows] = useState([])
+  const [merchants, setMerchants] = useState([])
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [total, setTotal] = useState(0)
   const [limit, setLimit] = useState(25)
   const [q, setQ] = useState('')
+  const [filters, setFilters] = useState({
+    merchantId: '',
+    dateFrom: '',
+    dateTo: '',
+    shipmentLabelStatus: '',
+  })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
 
@@ -88,7 +152,15 @@ export default function OrdersPage() {
   const load = useCallback(() => {
     setLoading(true)
     api
-      .orders({ page, q, limit })
+      .orders({
+        page,
+        q,
+        limit,
+        merchant_id: filters.merchantId,
+        date_from: filters.dateFrom,
+        date_to: filters.dateTo,
+        shipment_label_status: filters.shipmentLabelStatus,
+      })
       .then((data) => {
         setRows(data.results)
         setTotalPages(data.total_pages)
@@ -97,16 +169,42 @@ export default function OrdersPage() {
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
-  }, [page, q, limit])
+  }, [page, q, limit, filters])
 
   useEffect(() => {
     load()
   }, [load])
 
+  useEffect(() => {
+    api
+      .merchants()
+      .then((data) => setMerchants(data.results || []))
+      .catch(() => setMerchants([]))
+  }, [])
+
   function handleSearch(e) {
     e.preventDefault()
     setPage(1) // a new search always restarts from page 1
     setQ(e.target.elements.search.value)
+  }
+
+  function handleFilterChange(field, value) {
+    setPage(1)
+    setFilters((currentFilters) => ({
+      ...currentFilters,
+      [field]: value,
+    }))
+  }
+
+  function clearFilters() {
+    setPage(1)
+    setQ('')
+    setFilters({
+      merchantId: '',
+      dateFrom: '',
+      dateTo: '',
+      shipmentLabelStatus: '',
+    })
   }
 
   return (
@@ -135,9 +233,59 @@ export default function OrdersPage() {
               <option value={100}>100</option>
             </select>
           </div>
+          <div className="toolbar-field">
+            <label htmlFor="merchant">Merchant:</label>
+            <select
+              id="merchant"
+              value={filters.merchantId}
+              onChange={(e) => handleFilterChange('merchantId', e.target.value)}
+            >
+              <option value="">All merchants</option>
+              {merchants.map((merchant) => (
+                <option key={merchant.id} value={merchant.id}>
+                  {merchant.merchant_name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="toolbar-field">
+            <label htmlFor="date-from">From date:</label>
+            <input
+              id="date-from"
+              type="date"
+              value={filters.dateFrom}
+              onChange={(e) => handleFilterChange('dateFrom', e.target.value)}
+            />
+          </div>
+          <div className="toolbar-field">
+            <label htmlFor="date-to">To date:</label>
+            <input
+              id="date-to"
+              type="date"
+              value={filters.dateTo}
+              onChange={(e) => handleFilterChange('dateTo', e.target.value)}
+            />
+          </div>
+          <div className="toolbar-field">
+            <label htmlFor="shipment-label-status">Shipment Label:</label>
+            <select
+              id="shipment-label-status"
+              value={filters.shipmentLabelStatus}
+              onChange={(e) => handleFilterChange('shipmentLabelStatus', e.target.value)}
+            >
+              <option value="">All labels</option>
+              <option value="approved">Approved</option>
+              <option value="processing">Under Review</option>
+              <option value="not_approved">Not Approved</option>
+              <option value="missing">Yet to Upload</option>
+            </select>
+          </div>
           <button type="submit">Search</button>
           <button type="button" onClick={load}>
             Refresh
+          </button>
+          <button type="button" onClick={clearFilters}>
+            Clear
           </button>
         </form>
       </div>
