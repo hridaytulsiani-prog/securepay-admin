@@ -45,4 +45,4 @@ jobs:
         with:
           apiToken: ${{ secrets.DEPLOY_APP_CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.DEPLOY_APP_CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy dist --project-name=escrosafe-admin --branch=production
+          command: pages deploy dist --project-name=escrosafe-admin --branch=main
