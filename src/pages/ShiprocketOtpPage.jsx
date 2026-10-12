@@ -5,7 +5,7 @@ export default function ShiprocketOtpPage() {
   return (
     <CourierOtpPage
       courierName="Shiprocket"
-      pageTitle="SecurePay - Shiprocket OTP Check"
+      pageTitle="EscroSafe - Shiprocket OTP Check"
       awbLabel="Shiprocket AWB:"
       checkButtonLabel="Check Shiprocket tracking"
       checkOtp={api.checkShiprocketOtp}

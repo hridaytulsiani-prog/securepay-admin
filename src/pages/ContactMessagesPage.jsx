@@ -1,7 +1,9 @@
-// Owner-only inbox for messages sent through the public "Get in touch" form on
-// the customer page. Each message is stored in the database; here the owner can
+// Owner-only inbox for messages sent through the public contact forms. The same page serves two inboxes:
+// "customer" (the "Get in touch" form on the customer page) and "merchant" (the "Still have a question?"
+// form on the merchant site's landing page). Each message is stored in the database; here the owner can
 // read it, search/filter, mark its status and keep an internal note.
 import { useCallback, useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { api } from '../api/client'
 import Modal from '../components/Modal'
 
@@ -23,6 +25,9 @@ function formatDate(value) {
 }
 
 function defaultReplySubject(row) {
+  if (row.source === 'merchant') {
+    return row.topic ? `Your EscroSafe question: ${row.topic}` : 'Your EscroSafe question'
+  }
   return row.order_id ? `Your EscroSafe query about order ${row.order_id}` : 'Your EscroSafe query'
 }
 
@@ -60,11 +65,12 @@ function MessageModal({ row, onClose, onChanged }) {
   }
 
   return (
-    <Modal title={`Message from ${row.name}`} onClose={onClose} width={560}>
+    <Modal title={`${row.source === 'merchant' ? 'Merchant query from' : 'Message from'} ${row.name}`} onClose={onClose} width={560}>
       <div className="contact-modal">
         <div className="contact-modal-meta">
           <span>{row.email}</span>
-          {row.order_id && <span>Order {row.order_id}</span>}
+          {row.topic && <span>Topic: {row.topic}</span>}
+          {row.order_id && <span>{row.source === 'merchant' ? 'Order / AWB' : 'Order'} {row.order_id}</span>}
           <span>{formatDate(row.created_at)}</span>
         </div>
 
@@ -94,14 +100,17 @@ function MessageModal({ row, onClose, onChanged }) {
   )
 }
 
-export default function ContactMessagesPage() {
+export default function ContactMessagesPage({ source = 'customer' }) {
+  const isMerchant = source === 'merchant'
   const [rows, setRows] = useState([])
   const [counts, setCounts] = useState({ new: 0, in_progress: 0, resolved: 0 })
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [total, setTotal] = useState(0)
   const [limit, setLimit] = useState(25)
-  const [q, setQ] = useState('')
+  // /dashboard/<page>?q=... opens the page already searched (used by the top-bar search).
+  const [searchParams] = useSearchParams()
+  const [q, setQ] = useState(searchParams.get('q') || '')
   const [statusFilter, setStatusFilter] = useState('')
   const [selectedId, setSelectedId] = useState(null)
   const [error, setError] = useState('')
@@ -110,7 +119,7 @@ export default function ContactMessagesPage() {
   const load = useCallback(() => {
     setLoading(true)
     api
-      .contactMessages({ page, limit, q, status: statusFilter })
+      .contactMessages({ page, limit, q, status: statusFilter, source })
       .then((data) => {
         setRows(data.results || [])
         setCounts(data.counts || { new: 0, in_progress: 0, resolved: 0 })
@@ -120,7 +129,7 @@ export default function ContactMessagesPage() {
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
-  }, [page, limit, q, statusFilter])
+  }, [page, limit, q, statusFilter, source])
 
   useEffect(() => {
     load()
@@ -151,11 +160,13 @@ export default function ContactMessagesPage() {
                 <path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v8a2.5 2.5 0 0 1-2.5 2.5H11l-4 3.5V17h-.5A2.5 2.5 0 0 1 4 14.5v-8Zm4 1.5a1 1 0 0 0 0 2h8a1 1 0 1 0 0-2H8Zm0 3.5a1 1 0 1 0 0 2h5a1 1 0 1 0 0-2H8Z" />
               </svg>
             </span>
-            Customer messages
+            {isMerchant ? 'Merchant queries' : 'Customer messages'}
           </div>
         </div>
         <p className="contact-intro">
-          Messages sent from the &quot;Get in touch&quot; form on the customer page. Open a message to read it, change its status or reply by email.
+          {isMerchant
+            ? 'Questions sent from the "Still have a question?" form on the merchant site. Open a query to read it, change its status or reply by email.'
+            : 'Messages sent from the "Get in touch" form on the customer page. Open a message to read it, change its status or reply by email.'}
         </p>
 
         <div className="contact-filter-chips" role="tablist" aria-label="Filter by status">
@@ -179,7 +190,7 @@ export default function ContactMessagesPage() {
         <form className="toolbar audit-toolbar" onSubmit={handleSearch}>
           <div className="toolbar-field">
             <label htmlFor="contact-search">Search:</label>
-            <input id="contact-search" name="search" placeholder="name, email, order ID or message" defaultValue={q} />
+            <input id="contact-search" name="search" placeholder={isMerchant ? 'name, email or message' : 'name, email, order ID or message'} defaultValue={q} />
           </div>
           <div className="toolbar-field">
             <label htmlFor="contact-rows">Rows:</label>
@@ -211,7 +222,7 @@ export default function ContactMessagesPage() {
               <tr>
                 <th>Received</th>
                 <th>From</th>
-                <th>Order ID</th>
+                {!isMerchant && <th>Order ID</th>}
                 <th>Message</th>
                 <th>Status</th>
                 <th>Details</th>
@@ -220,11 +231,11 @@ export default function ContactMessagesPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="empty-row">Loading...</td>
+                  <td colSpan={isMerchant ? 5 : 6} className="empty-row">Loading...</td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="empty-row">No messages found.</td>
+                  <td colSpan={isMerchant ? 5 : 6} className="empty-row">{isMerchant ? 'No merchant queries yet.' : 'No messages found.'}</td>
                 </tr>
               ) : (
                 rows.map((row) => (
@@ -234,7 +245,7 @@ export default function ContactMessagesPage() {
                       <div className="cell-strong">{row.name}</div>
                       <div className="cell-muted">{row.email}</div>
                     </td>
-                    <td><span className="cell-strong">{row.order_id || '-'}</span></td>
+                    {!isMerchant && <td><span className="cell-strong">{row.order_id || '-'}</span></td>}
                     <td><div className="cell-message contact-preview">{row.message}</div></td>
                     <td><span className={`status-pill ${STATUS_PILL_CLASS[row.status] || ''}`}>{row.status_label}</span></td>
                     <td>
@@ -254,7 +265,7 @@ export default function ContactMessagesPage() {
             Prev
           </button>
           <span>
-            Page {page} of {totalPages} ({total} {total === 1 ? 'message' : 'messages'})
+            Page {page} of {totalPages} ({total} {isMerchant ? (total === 1 ? 'query' : 'queries') : (total === 1 ? 'message' : 'messages')})
           </span>
           <button disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
             Next

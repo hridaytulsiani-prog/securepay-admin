@@ -80,7 +80,7 @@ export default function SuspiciousPdfsPage() {
 
   return (
     <div>
-      <h1>SecurePay - Suspicious PDFs</h1>
+      <h1>EscroSafe - Suspicious PDFs</h1>
 
       <div className="panel-card">
         <form className="toolbar" onSubmit={handleSearch}>

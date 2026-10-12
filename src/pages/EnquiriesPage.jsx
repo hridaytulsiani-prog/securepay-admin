@@ -3,9 +3,11 @@
 // admins use to investigate a customer complaint and decide who gets the
 // money: NotesModal for the running investigation log, ResolutionModal for
 // the final refund/pay-merchant decision + reason.
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { api } from '../api/client'
 import DecisionHistoryModal from '../components/DecisionHistoryModal'
+import Modal from '../components/Modal'
 import NotesModal from '../components/NotesModal'
 import ResolutionModal from '../components/ResolutionModal'
 import { useAuth } from '../context/AuthContext'
@@ -17,34 +19,33 @@ function truncate(text, max = 80) {
   return text.length > max ? `${text.slice(0, max)}…` : text
 }
 
-function yesNo(value) {
-  if (value === true) return 'Yes'
-  if (value === false) return 'No'
-  return '—'
-}
-
 const RESOLUTION_LABELS = {
   unresolved: 'Unresolved',
   money_refunded: 'Money Refunded',
   money_to_merchant: 'Money To Merchant',
 }
 
-// Notes and Action are rendered separately (pinned columns) — not part of the picker's own list
-// keeps them always visible, but they still count toward "columns" conceptually for consistency.
+function formatLabel(value) {
+  const text = String(value || '').replace(/[_-]+/g, ' ').trim()
+  return text ? text.toUpperCase() : '—'
+}
+
+// Notes, Details and Action are rendered separately from the picker's list below.
 const COLUMNS = [
   { key: 'enquiry_id', label: 'Enquiry ID', className: 'enquiry-col-id', render: (row) => <span className="cell-strong">{row.enquiry_id}</span> },
   { key: 'order_id', label: 'Order ID', className: 'enquiry-col-order', render: (row) => row.order_id },
   {
-    key: 'shipment',
-    label: 'Shipment ID',
-    className: 'enquiry-col-shipment',
+    key: 'merchant',
+    label: 'Merchant',
+    className: 'enquiry-col-merchant',
     render: (row) => (
       <>
-        <div className="cell-strong">{row.shipment_awb || '—'}</div>
-        <div className="cell-muted">{row.shipment_courier || ''}</div>
+        <div className="cell-strong">{row.merchant_name || '—'}</div>
+        <div className="cell-muted">{row.merchant_email || ''}</div>
       </>
     ),
   },
+  { key: 'awb', label: 'AWB', className: 'enquiry-col-shipment', render: (row) => row.shipment_awb || '—' },
   {
     key: 'customer',
     label: 'Customer',
@@ -61,34 +62,14 @@ const COLUMNS = [
     label: 'Receipt Status',
     className: 'enquiry-col-receipt',
     render: (row) => (
-      <span className={`status-pill status-${(row.receipt_status || '').toLowerCase()}`}>
-        {row.receipt_status?.replace(/_/g, ' ')}
-      </span>
+      <span className={`status-pill status-${(row.receipt_status || '').toLowerCase()}`}>{formatLabel(row.receipt_status)}</span>
     ),
   },
-  { key: 'someone_else_received', label: 'Someone Else Received', className: 'enquiry-col-boolean-wide', render: (row) => yesNo(row.someone_else_received) },
-  { key: 'agent_contacted', label: 'Agent Contacted', className: 'enquiry-col-boolean-wide', render: (row) => yesNo(row.agent_contacted) },
-  { key: 'otp_shared', label: 'OTP Shared', className: 'enquiry-col-boolean', render: (row) => yesNo(row.otp_shared) },
-  { key: 'unboxing_evidence', label: 'Unboxing Evidence', className: 'enquiry-col-boolean-wide', render: (row) => yesNo(row.unboxing_evidence) },
-  {
-    key: 'evidence',
-    label: 'Evidence',
-    className: 'enquiry-col-evidence',
-    render: (row) =>
-      row.evidence_url ? (
-        <a className="evidence-link" href={row.evidence_url} target="_blank" rel="noreferrer">
-          View
-        </a>
-      ) : (
-        '—'
-      ),
-  },
-  { key: 'message', label: 'Message', className: 'enquiry-col-message', render: (row) => <div className="cell-message">{truncate(row.enquiry_text)}</div> },
   {
     key: 'status',
     label: 'Status',
     className: 'enquiry-col-status',
-    render: (row) => <span className={`status-pill status-${(row.status || '').toLowerCase()}`}>{row.status}</span>,
+    render: (row) => <span className={`status-pill status-${(row.status || '').toLowerCase()}`}>{formatLabel(row.status)}</span>,
   },
   {
     key: 'submitted',
@@ -100,6 +81,45 @@ const COLUMNS = [
   },
 ]
 
+// Read-only popup with everything about one enquiry, including the full message.
+// No reply-by-email here: the admin works through the notes/resolution flow instead.
+function EnquiryDetailsModal({ row, onClose }) {
+  const details = [
+    ['Enquiry ID', row.enquiry_id],
+    ['Order ID', row.order_id],
+    ['Merchant', row.merchant_name || '—'],
+    ['Merchant email', row.merchant_email || '—'],
+    ['AWB', row.shipment_awb || '—'],
+    ['Customer', row.customer_name || '—'],
+    ['Phone', row.customer_phone || '—'],
+    ['Email', row.customer_email || '—'],
+    ['Receipt status', <span className={`status-pill status-${(row.receipt_status || '').toLowerCase()}`}>{formatLabel(row.receipt_status)}</span>],
+    ['Status', <span className={`status-pill status-${(row.status || '').toLowerCase()}`}>{formatLabel(row.status)}</span>],
+    ['Submitted', row.created_at ? new Date(row.created_at).toLocaleString() : '—'],
+  ]
+  return (
+    <Modal title="Enquiry details" onClose={onClose} width={560}>
+      <dl className="enquiry-details-grid">
+        {details.map(([label, value]) => (
+          <div key={label}>
+            <dt>{label}</dt>
+            <dd>{value}</dd>
+          </div>
+        ))}
+      </dl>
+      <div className="enquiry-details-message">
+        <span>Message</span>
+        <p>{row.enquiry_text || '—'}</p>
+      </div>
+      {row.evidence_url && (
+        <a className="evidence-link" href={row.evidence_url} target="_blank" rel="noreferrer">
+          View uploaded file
+        </a>
+      )}
+    </Modal>
+  )
+}
+
 export default function EnquiriesPage() {
   const { admin } = useAuth()
   const [rows, setRows] = useState([])
@@ -107,12 +127,23 @@ export default function EnquiriesPage() {
   const [totalPages, setTotalPages] = useState(1)
   const [total, setTotal] = useState(0)
   const [limit, setLimit] = useState(25)
-  const [q, setQ] = useState('')
+  // /dashboard/<page>?q=... opens the page already searched (used by the top-bar search).
+  const [searchParams] = useSearchParams()
+  const [q, setQ] = useState(searchParams.get('q') || '')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const [notesEnquiry, setNotesEnquiry] = useState(null)
   const [resolutionEnquiry, setResolutionEnquiry] = useState(null)
   const [historyEnquiry, setHistoryEnquiry] = useState(null)
+  const [detailsEnquiry, setDetailsEnquiry] = useState(null)
+  // ?open=1 (from an order's report) opens the details of the one enquiry that was searched for.
+  const openOnce = useRef(searchParams.get('open') === '1')
+  useEffect(() => {
+    if (openOnce.current && rows.length === 1) {
+      openOnce.current = false
+      setDetailsEnquiry(rows[0])
+    }
+  }, [rows])
 
   const { visibleColumns } = useColumnVisibility(
     'securepay_admin_enquiries_columns',
@@ -146,7 +177,7 @@ export default function EnquiriesPage() {
 
   // Loading/empty rows need to span the pinned Notes + Action columns too,
   // or the placeholder cell won't reach the table's full width.
-  const totalColSpan = visibleColumns.length + 2
+  const totalColSpan = visibleColumns.length + 3
 
   return (
     <div className="enquiries-page">
@@ -165,7 +196,7 @@ export default function EnquiriesPage() {
         <form className="toolbar enquiries-toolbar" onSubmit={handleSearch}>
           <div className="toolbar-field">
             <label htmlFor="search">Search enquiries:</label>
-            <input id="search" name="search" placeholder="order id, customer name, phone…" defaultValue={q} />
+            <input id="search" name="search" placeholder="enquiry id, order id, AWB, merchant, customer, phone…" defaultValue={q} />
           </div>
           <div className="toolbar-field">
             <label htmlFor="rows">Rows:</label>
@@ -201,6 +232,7 @@ export default function EnquiriesPage() {
                 {/* Notes/Action always render, regardless of the column picker's
                     selection — they're pinned via CSS (position: sticky; right: …)
                     so they stay visible while the rest of the wide table scrolls. */}
+                <th className="enquiry-col-details">Details</th>
                 <th className="col-pinned col-pinned-notes">Notes</th>
                 <th className="col-pinned col-pinned-action">Action</th>
               </tr>
@@ -220,6 +252,11 @@ export default function EnquiriesPage() {
                     {visibleColumns.map((col) => (
                       <td key={col.key} className={col.className || ''}>{col.render(row)}</td>
                     ))}
+                    <td className="enquiry-col-details">
+                      <button type="button" className="link-button" onClick={() => setDetailsEnquiry(row)}>
+                        Details
+                      </button>
+                    </td>
                     <td className="col-pinned col-pinned-notes">
                       {row.latest_note ? (
                         <div className="cell-message">{truncate(row.latest_note.note, 60)}</div>
@@ -270,6 +307,7 @@ export default function EnquiriesPage() {
         </div>
       </div>
 
+      {detailsEnquiry && <EnquiryDetailsModal row={detailsEnquiry} onClose={() => setDetailsEnquiry(null)} />}
       {notesEnquiry && (
         <NotesModal
           enquiry={notesEnquiry}

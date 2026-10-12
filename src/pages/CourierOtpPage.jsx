@@ -132,7 +132,7 @@ export default function CourierOtpPage({
 
   return (
     <div>
-      <h1>{pageTitle || `SecurePay - ${courierName} OTP Check`}</h1>
+      <h1>{pageTitle || `EscroSafe - ${courierName} OTP Check`}</h1>
 
       <div className="panel-card">
         <form className="toolbar" onSubmit={handleSubmit}>
