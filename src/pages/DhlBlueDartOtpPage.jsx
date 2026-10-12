@@ -5,7 +5,7 @@ export default function DhlBlueDartOtpPage() {
   return (
     <CourierOtpPage
       courierName="DHL / Blue Dart"
-      pageTitle="SecurePay - DHL / Blue Dart OTP Check"
+      pageTitle="EscroSafe - DHL / Blue Dart OTP Check"
       awbLabel="Blue Dart AWB:"
       checkButtonLabel="Check DHL tracking"
       checkOtp={api.checkDhlBlueDartOtp}

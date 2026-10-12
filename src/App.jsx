@@ -23,6 +23,11 @@ import CreateAdminAccountPage from './pages/CreateAdminAccountPage'
 import AllUsersPage from './pages/AllUsersPage'
 import MerchantUsersPage from './pages/MerchantUsersPage'
 import ContactMessagesPage from './pages/ContactMessagesPage'
+import MerchantIssuesPage from './pages/MerchantIssuesPage'
+import CustomerIssuesPage from './pages/CustomerIssuesPage'
+import SearchResultsPage from './pages/SearchResultsPage'
+import IssueOrderReportPage from './pages/IssueOrderReportPage'
+import OrderCheckPage from './pages/OrderCheckPage'
 import { OmniwarePartnerLoginPage, OmniwarePartnerPortal } from './pages/OmniwarePartnerPortal'
 
 export default function App() {
@@ -61,7 +66,13 @@ export default function App() {
           <Route path="audit-trail" element={<AuditTrailPage />} />
           <Route path="all-users" element={<AllUsersPage />} />
           <Route path="merchant-users" element={<MerchantUsersPage />} />
-          <Route path="messages" element={<ContactMessagesPage />} />
+          <Route path="messages" element={<ContactMessagesPage key="customer" source="customer" />} />
+          <Route path="search" element={<SearchResultsPage />} />
+          <Route path="merchant-issues" element={<MerchantIssuesPage />} />
+          <Route path="customer-issues" element={<CustomerIssuesPage />} />
+          <Route path="order-check" element={<OrderCheckPage />} />
+          <Route path="merchant-issues/:issueId/report" element={<IssueOrderReportPage />} />
+          <Route path="merchant-queries" element={<ContactMessagesPage key="merchant" source="merchant" />} />
         </Route>
         {/* Any unknown path (including "/") just lands on the dashboard;
             ProtectedRoute will bounce to /login if there's no session. */}

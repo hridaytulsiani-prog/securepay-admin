@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import escrosafeLogo from '../assets/escrosafe-logo.png'
 
 export default function LoginPage() {
   const [username, setUsername] = useState('')
@@ -28,9 +29,10 @@ export default function LoginPage() {
 
   return (
     <div className="auth-shell">
+      <img className="auth-brand-logo" src={escrosafeLogo} alt="EscroSafe" />
       <form className="auth-card" onSubmit={handleSubmit}>
         <h1>Sign In</h1>
-        <p className="auth-subtitle">Access your SecurePay admin console.</p>
+        <p className="auth-subtitle">Access your EscroSafe admin console.</p>
 
         <label htmlFor="username">Username</label>
         <input

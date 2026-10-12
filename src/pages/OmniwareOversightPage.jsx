@@ -142,7 +142,7 @@ export default function OmniwareOversightPage({ partnerMode = false }) {
 
   return (
     <div>
-      <h1>{partnerMode ? 'SecurePay Partner Oversight' : 'Aggregator Oversight Report'}</h1>
+      <h1>{partnerMode ? 'EscroSafe Partner Oversight' : 'Aggregator Oversight Report'}</h1>
 
       <div className="stat-grid oversight-stat-grid">
         <div className="stat-card">

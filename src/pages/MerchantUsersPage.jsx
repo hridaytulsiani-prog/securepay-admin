@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { api } from '../api/client'
 import Modal from '../components/Modal'
 
@@ -10,7 +11,9 @@ export default function MerchantUsersPage() {
   const [merchants, setMerchants] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [q, setQ] = useState('')
+  // /dashboard/<page>?q=... opens the page already searched (used by the top-bar search).
+  const [searchParams] = useSearchParams()
+  const [q, setQ] = useState(searchParams.get('q') || '')
   const [editMerchant, setEditMerchant] = useState(null)
   const [deleteMerchant, setDeleteMerchant] = useState(null)
 

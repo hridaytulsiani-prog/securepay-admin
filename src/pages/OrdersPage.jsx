@@ -2,6 +2,7 @@
 // adminpanel.api.v1.orders_views.AdminOrderListView (no merchant filter
 // applied by default, unlike the merchant-facing dashboard).
 import { useCallback, useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Link } from 'react-router-dom'
 import { api } from '../api/client'
 import { useColumnVisibility } from '../hooks/useColumnVisibility'
@@ -244,7 +245,9 @@ export default function OrdersPage() {
   const [totalPages, setTotalPages] = useState(1)
   const [total, setTotal] = useState(0)
   const [limit, setLimit] = useState(25)
-  const [q, setQ] = useState('')
+  // /dashboard/<page>?q=... opens the page already searched (used by the top-bar search).
+  const [searchParams] = useSearchParams()
+  const [q, setQ] = useState(searchParams.get('q') || '')
   const [filters, setFilters] = useState({
     merchantId: '',
     dateFrom: '',

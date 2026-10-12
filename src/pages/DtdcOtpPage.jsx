@@ -5,7 +5,7 @@ export default function DtdcOtpPage() {
   return (
     <CourierOtpPage
       courierName="DTDC"
-      pageTitle="SecurePay - DTDC OTP Check"
+      pageTitle="EscroSafe - DTDC OTP Check"
       awbLabel="DTDC AWB:"
       checkButtonLabel="Check DTDC tracking"
       checkOtp={api.checkDtdcOtp}

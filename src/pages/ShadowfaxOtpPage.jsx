@@ -5,7 +5,7 @@ export default function ShadowfaxOtpPage() {
   return (
     <CourierOtpPage
       courierName="Shadowfax"
-      pageTitle="SecurePay - Shadowfax OTP Check"
+      pageTitle="EscroSafe - Shadowfax OTP Check"
       awbLabel="Shadowfax AWB:"
       checkButtonLabel="Check Shadowfax tracking"
       checkOtp={api.checkShadowfaxOtp}

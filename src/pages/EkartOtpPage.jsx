@@ -5,7 +5,7 @@ export default function EkartOtpPage() {
   return (
     <CourierOtpPage
       courierName="Ekart"
-      pageTitle="SecurePay - Ekart OTP Check"
+      pageTitle="EscroSafe - Ekart OTP Check"
       awbLabel="Ekart AWB:"
       checkButtonLabel="Check Ekart tracking"
       checkOtp={api.checkEkartOtp}

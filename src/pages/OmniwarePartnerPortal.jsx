@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { api, getPartnerToken, setPartnerToken } from '../api/client'
 import OmniwareOversightPage from './OmniwareOversightPage'
+import escrosafeLogo from '../assets/escrosafe-logo.png'
 
 export function OmniwarePartnerLoginPage() {
   const [accessToken, setAccessToken] = useState('')
@@ -26,9 +27,10 @@ export function OmniwarePartnerLoginPage() {
 
   return (
     <div className="auth-shell partner-auth-shell">
+      <img className="auth-brand-logo" src={escrosafeLogo} alt="EscroSafe" />
       <form className="auth-card" onSubmit={handleSubmit}>
         <h1>Aggregator Partner</h1>
-        <p className="auth-subtitle">Restricted SecurePay oversight access</p>
+        <p className="auth-subtitle">Restricted EscroSafe oversight access</p>
 
         <label htmlFor="access-token">Access Token</label>
         <input
@@ -76,7 +78,7 @@ export function OmniwarePartnerPortal() {
     <div className="partner-shell">
       <header className="topbar partner-topbar">
         <div className="brand-block">
-          <div className="brand">SecurePay</div>
+          <div className="brand brand-logo"><img src={escrosafeLogo} alt="EscroSafe" /></div>
           <div className="brand-subtitle">Aggregator Oversight</div>
         </div>
         <div className="topbar-actions">

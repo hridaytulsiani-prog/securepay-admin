@@ -5,7 +5,7 @@ export default function XpressbeesOtpPage() {
   return (
     <CourierOtpPage
       courierName="Xpressbees"
-      pageTitle="SecurePay - Xpressbees OTP Check"
+      pageTitle="EscroSafe - Xpressbees OTP Check"
       awbLabel="Xpressbees AWB:"
       checkButtonLabel="Check Xpressbees tracking"
       checkOtp={api.checkXpressbeesOtp}
