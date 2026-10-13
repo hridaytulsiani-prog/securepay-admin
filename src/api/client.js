@@ -164,6 +164,7 @@ export const api = {
   auditLogs: (params) => request('/audit-logs/', { params }),
   decisionHistory: (params) => request('/decision-history/', { params }),
   merchants: (params) => request('/merchants/', { params }),
+  deleteMerchant: (merchantId) => request(`/merchants/${merchantId}/`, { method: 'DELETE' }),
   orders: (params) => request('/orders/', { params }),
   needsAttention: (params) => request('/needs-attention/', { params }),
   decideNeedsAttention: (vaultpayOrderId, decision) =>

@@ -167,7 +167,7 @@ export default function PAControlPlanePage() {
                 <th>Courier Check</th>
                 <th>Decision</th>
                 <th>Aggregator Request</th>
-                <th>PA Command</th>
+                <th>PA Message</th>
                 <th>Reason</th>
               </tr>
             </thead>
@@ -231,7 +231,7 @@ export default function PAControlPlanePage() {
                 ['PDF Check', selected.pdf_verification?.status],
                 ['Courier Check', selected.courier_verification?.status],
                 ['Decision', selected.decision_state],
-                ['PA Command', selected.command?.status || selected.pa_command_state],
+                ['PA Message', selected.command?.status || selected.pa_command_state],
                 ['Reconciliation', selected.reconciliation?.status],
               ].map(([label, value]) => (
                 <div className="pa-state-cell" key={label}>
@@ -251,7 +251,7 @@ export default function PAControlPlanePage() {
           </section>
 
           <section className="pa-section">
-            <div className="section-title">Final Financial Command</div>
+            <div className="section-title">Final Financial Instruction</div>
             <div className="pa-actions-row">
               <button type="button" onClick={providerAccept} disabled={commandDisabled}>
                 {acting ? 'Sending...' : finalCommandLabel(selected)}

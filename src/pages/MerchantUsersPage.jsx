@@ -16,6 +16,9 @@ export default function MerchantUsersPage() {
   const [q, setQ] = useState(searchParams.get('q') || '')
   const [editMerchant, setEditMerchant] = useState(null)
   const [deleteMerchant, setDeleteMerchant] = useState(null)
+  const [deleteError, setDeleteError] = useState('')
+  const [deleteSuccess, setDeleteSuccess] = useState('')
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const load = useCallback(() => {
     setLoading(true)
@@ -36,6 +39,25 @@ export default function MerchantUsersPage() {
   function handleSearch(e) {
     e.preventDefault()
     setQ(e.target.elements.search.value.trim())
+  }
+
+  async function handleDeleteMerchant() {
+    if (!deleteMerchant) return
+
+    setIsDeleting(true)
+    setDeleteError('')
+    setDeleteSuccess('')
+
+    try {
+      await api.deleteMerchant(deleteMerchant.id)
+      setDeleteSuccess(`Deleted ${deleteMerchant.merchant_name}.`)
+      setDeleteMerchant(null)
+      load()
+    } catch (err) {
+      setDeleteError(err.message || 'Unable to delete merchant.')
+    } finally {
+      setIsDeleting(false)
+    }
   }
 
   return (
@@ -69,6 +91,7 @@ export default function MerchantUsersPage() {
         </form>
 
       {error && <div className="error-banner">{error}</div>}
+      {deleteSuccess && <div className="success-banner">{deleteSuccess}</div>}
 
         <div className="table-wrap merchant-users-table-wrap">
           <table className="merchant-users-table">
@@ -136,14 +159,15 @@ export default function MerchantUsersPage() {
         <Modal title={`Delete Merchant - ${deleteMerchant.merchant_name}`} onClose={() => setDeleteMerchant(null)} width={520}>
           <div className="merchant-delete-preview">
             <p>
-              This control is prepared for deleting a merchant account, but deletion is not connected yet.
+              Delete this merchant account and all records linked to it, including orders, checkout sessions, notifications, and uploaded label records.
             </p>
+            {deleteError && <div className="error-banner">{deleteError}</div>}
             <div className="modal-footer">
-              <button type="button" className="btn-secondary" onClick={() => setDeleteMerchant(null)}>
+              <button type="button" className="btn-secondary" onClick={() => setDeleteMerchant(null)} disabled={isDeleting}>
                 Close
               </button>
-              <button type="button" className="danger-link-button" onClick={() => setDeleteMerchant(null)}>
-                Delete
+              <button type="button" className="danger-link-button" onClick={() => void handleDeleteMerchant()} disabled={isDeleting}>
+                {isDeleting ? 'Deleting...' : 'Delete'}
               </button>
             </div>
           </div>
