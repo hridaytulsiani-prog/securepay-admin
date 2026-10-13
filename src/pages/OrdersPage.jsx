@@ -30,15 +30,23 @@ function normalizeCourierName(courier) {
   return String(courier || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
 }
 
-function CourierLogoCell({ courier }) {
+function findCourierLogo(courier) {
   const normalized = normalizeCourierName(courier)
-  const match = courierLogos.find((item) => item.keys.some((key) => normalizeCourierName(key) === normalized))
+  if (!normalized) return null
+  return courierLogos.find((item) => item.keys.some((key) => {
+    const normalizedKey = normalizeCourierName(key)
+    return normalized === normalizedKey || normalized.includes(normalizedKey)
+  }))
+}
+
+function CourierLogoCell({ courier }) {
+  const match = findCourierLogo(courier)
 
   if (!courier) return <span className="courier-logo-empty">-</span>
   if (!match) return <span className="courier-logo-fallback">{courier}</span>
 
   return (
-    <span className="courier-logo-cell" title={match.label}>
+    <span className="courier-logo-cell" title={courier}>
       <img src={match.logo} alt={`${match.label} logo`} />
     </span>
   )
@@ -67,7 +75,10 @@ function formatDateTime(value) {
 const TRACKPARCEL_SUPPORTED_COURIERS = new Set(['blue dart', 'bluedart', 'delhivery', 'dtdc', 'shadowfax', 'xpressbees'])
 
 function isTrackParcelSupported(courier) {
-  return TRACKPARCEL_SUPPORTED_COURIERS.has(normalizeCourierName(courier))
+  const normalized = normalizeCourierName(courier)
+  return Array.from(TRACKPARCEL_SUPPORTED_COURIERS).some((key) => (
+    normalized === key || normalized.includes(key)
+  ))
 }
 
 function TrackParcelTrackButton({ awb, courier }) {
