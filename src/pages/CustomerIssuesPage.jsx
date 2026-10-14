@@ -219,12 +219,11 @@ export function ChatModal({ row, onClose, onChanged }) {
       width={760}
     >
       <div className="issue-chat-modal">
-        <details className="issue-note-box cis-chat-details">
-          <summary>Full details{(row.attachments || []).length ? ` · ${row.attachments.length} photo${row.attachments.length === 1 ? '' : 's'}` : ''}</summary>
-          <IssueDetailsBody row={row} />
-        </details>
-
-        <div className="issue-chat-top">
+        <div className="issue-chat-top cis-chat-top">
+          <details className="issue-note-box cis-chat-details">
+            <summary>Details{(row.attachments || []).length ? ` · ${row.attachments.length} photo${row.attachments.length === 1 ? '' : 's'}` : ''}</summary>
+            <IssueDetailsBody row={row} />
+          </details>
           <label className="issue-status-control">
             <span>Status</span>
             <select value={row.status} onChange={handleStatusChange} disabled={savingStatus}>
@@ -302,11 +301,10 @@ export function ChatModal({ row, onClose, onChanged }) {
 
 export default function CustomerIssuesPage() {
   const [rows, setRows] = useState([])
-  const [counts, setCounts] = useState({ new: 0, in_progress: 0, resolved: 0 })
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [total, setTotal] = useState(0)
-  const [limit, setLimit] = useState(25)
+  const limit = 25
   const [searchParams] = useSearchParams()
   const [q, setQ] = useState(searchParams.get('q') || '')
   const [statusFilter, setStatusFilter] = useState('')
@@ -321,7 +319,6 @@ export default function CustomerIssuesPage() {
       .customerIssues({ page, limit, q, status: statusFilter, type: typeFilter })
       .then((data) => {
         setRows(data.results || [])
-        setCounts(data.counts || { new: 0, in_progress: 0, resolved: 0 })
         setTotalPages(data.total_pages || 1)
         setTotal(data.total || 0)
         setError('')
@@ -342,7 +339,7 @@ export default function CustomerIssuesPage() {
 
 
   const chatRow = rows.find((row) => row.id === chatId) || null
-  const allCount = counts.new + counts.in_progress + counts.resolved
+  const pageNumbers = Array.from({ length: totalPages }, (_, index) => index + 1)
 
   return (
     <div className="audit-page">
@@ -360,31 +357,25 @@ export default function CustomerIssuesPage() {
         </div>
         <p className="contact-intro">Problems customers report about their orders. Open a ticket to chat, set its status and keep internal notes.</p>
 
-        <div className="contact-filter-chips" role="tablist" aria-label="Filter by status">
-          {STATUS_FILTERS.map((item) => {
-            const count = item.value ? counts[item.value] : allCount
-            return (
-              <button
-                key={item.value || 'all'}
-                type="button"
-                role="tab"
-                aria-selected={statusFilter === item.value}
-                className={`contact-chip${statusFilter === item.value ? ' is-active' : ''}`}
-                onClick={() => {
-                  setPage(1)
-                  setStatusFilter(item.value)
-                }}
-              >
-                {item.label} <span>{count}</span>
-              </button>
-            )
-          })}
-        </div>
-
         <form className="toolbar audit-toolbar" onSubmit={handleSearch}>
           <div className="toolbar-field">
             <label htmlFor="cis-search">Search:</label>
             <input id="cis-search" name="search" placeholder="CIS-00012, customer, order ID or text" defaultValue={q} />
+          </div>
+          <div className="toolbar-field">
+            <label htmlFor="cis-status">Status:</label>
+            <select
+              id="cis-status"
+              value={statusFilter}
+              onChange={(event) => {
+                setStatusFilter(event.target.value)
+                setPage(1)
+              }}
+            >
+              {STATUS_FILTERS.map((status) => (
+                <option key={status.value || 'all'} value={status.value}>{status.label}</option>
+              ))}
+            </select>
           </div>
           <div className="toolbar-field">
             <label htmlFor="cis-type">Issue:</label>
@@ -400,22 +391,6 @@ export default function CustomerIssuesPage() {
               {ISSUE_TYPES.map((type) => (
                 <option key={type.value} value={type.value}>{type.label}</option>
               ))}
-            </select>
-          </div>
-          <div className="toolbar-field">
-            <label htmlFor="cis-rows">Rows:</label>
-            <select
-              id="cis-rows"
-              value={limit}
-              onChange={(event) => {
-                setLimit(Number(event.target.value))
-                setPage(1)
-              }}
-            >
-              <option value={10}>10</option>
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
             </select>
           </div>
           <button type="submit">Search</button>
@@ -467,7 +442,6 @@ export default function CustomerIssuesPage() {
                     </td>
                     <td>
                       <span className={`status-pill ${STATUS_PILL_CLASS[row.status] || ''}`}>{row.status_label}</span>
-                      {row.awaiting_reply && row.status !== 'resolved' ? <div className="cell-muted issue-awaiting">Needs a reply</div> : null}
                     </td>
                     <td>
                       <button type="button" className="table-action-link" onClick={() => setChatId(row.id)}>Open</button>
@@ -479,12 +453,19 @@ export default function CustomerIssuesPage() {
           </table>
         </div>
 
-        <div className="pagination audit-pagination">
-          <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Prev</button>
-          <span>
-            Page {page} of {totalPages} ({total} {total === 1 ? 'issue' : 'issues'})
-          </span>
-          <button disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>Next</button>
+        <div className="contact-pagination">
+          <button type="button" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Prev</button>
+          {pageNumbers.map((pageNumber) => (
+            <button
+              key={pageNumber}
+              type="button"
+              className={pageNumber === page ? 'is-active' : ''}
+              onClick={() => setPage(pageNumber)}
+            >
+              {pageNumber}
+            </button>
+          ))}
+          <button type="button" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>Next</button>
         </div>
       </div>
       {chatRow && <ChatModal key={chatRow.id} row={chatRow} onClose={() => setChatId(null)} onChanged={load} />}

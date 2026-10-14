@@ -20,24 +20,30 @@ export default function NeedsAttentionPage() {
   const [actingPdf, setActingPdf] = useState('')
   const [openPdfActions, setOpenPdfActions] = useState('')
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
+  const [success, setSuccess] = useState(null)
   const [q, setQ] = useState('')
   const [page, setPage] = useState(1)
-  const [filters, setFilters] = useState({ type: '', pdfStatus: '', courierStatus: '' })
+  const [filters, setFilters] = useState({ type: '', pdfStatus: '', courierStatus: '', sortOrder: 'newest' })
 
   const load = useCallback((options = {}) => {
     setLoading(true)
     setError('')
     api
-      .needsAttention({ q, sync: options.sync ? '1' : '' })
+      .needsAttention({ q, sync: options.sync ? '1' : '', sort: filters.sortOrder })
       .then((data) => setRows(data.results || []))
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
-  }, [q])
+  }, [q, filters.sortOrder])
 
   useEffect(() => {
     load()
   }, [load])
+
+  useEffect(() => {
+    if (!success) return undefined
+    const timer = window.setTimeout(() => setSuccess(null), 4500)
+    return () => window.clearTimeout(timer)
+  }, [success])
 
   const filteredRows = useMemo(() => rows.filter((row) => {
     const typeMatches = !filters.type || row.type === filters.type
@@ -57,11 +63,14 @@ export default function NeedsAttentionPage() {
     if (!row.vaultpay_order_id) return
 
     setError('')
-    setSuccess('')
+    setSuccess(null)
     setActingPdf(`${row.vaultpay_order_id}:${decision}`)
     try {
       await api.decideNeedsAttentionPdf(row.vaultpay_order_id, decision)
-      setSuccess(`PDF check marked ${pretty(decision)} for ${row.order_id}. PA decision has been re-evaluated.`)
+      setSuccess({
+        message: `PDF check marked ${pretty(decision)} for ${row.order_id}. PA decision has been re-evaluated.`,
+        tone: decision === 'NOT_APPROVED' ? 'danger' : 'success',
+      })
       setOpenPdfActions('')
       await load()
     } catch (err) {
@@ -73,7 +82,7 @@ export default function NeedsAttentionPage() {
 
   function clearFilters() {
     setQ('')
-    setFilters({ type: '', pdfStatus: '', courierStatus: '' })
+    setFilters({ type: '', pdfStatus: '', courierStatus: '', sortOrder: 'newest' })
     setPage(1)
   }
 
@@ -137,6 +146,13 @@ export default function NeedsAttentionPage() {
               <option value="NOT_VERIFIED">Not verified</option>
             </select>
           </div>
+          <div className="toolbar-field">
+            <label htmlFor="needs-sort-order">Sort:</label>
+            <select id="needs-sort-order" value={filters.sortOrder} onChange={(event) => { setFilters((current) => ({ ...current, sortOrder: event.target.value })); setPage(1) }}>
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+            </select>
+          </div>
           <button type="button" onClick={() => load({ sync: true })}>
             {loading ? 'Loading...' : 'Refresh'}
           </button>
@@ -144,13 +160,21 @@ export default function NeedsAttentionPage() {
         </form>
 
         {error ? <div className="error-banner">{error}</div> : null}
-        {success ? <div className="success-banner">{success}</div> : null}
+        {success ? (
+          <div className={`needs-toast needs-toast-${success.tone}`} role="status" aria-live="polite">
+            <span>{success.message}</span>
+            <button type="button" aria-label="Close notification" onClick={() => setSuccess(null)}>
+              ×
+            </button>
+          </div>
+        ) : null}
 
         <div className="table-wrap needs-attention-table-wrap">
           <table className="needs-attention-table">
             <thead>
               <tr>
                 <th>Issue</th>
+                <th>Cause</th>
                 <th>Merchant</th>
                 <th>Order</th>
                 <th>Customer</th>
@@ -162,18 +186,19 @@ export default function NeedsAttentionPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={8} className="empty-row">Loading...</td></tr>
+                <tr><td colSpan={9} className="empty-row">Loading...</td></tr>
               ) : filteredRows.length === 0 ? (
-                <tr><td colSpan={8} className="empty-row">No items need attention.</td></tr>
+                <tr><td colSpan={9} className="empty-row">No items need attention.</td></tr>
               ) : visibleRows.map((row) => (
                 <tr key={row.id}>
                   <td>
                     <div className="cell-strong">{row.title}</div>
+                  </td>
+                  <td>
                     <div className="cell-muted needs-message">{row.message}</div>
                   </td>
                   <td>
                     <div className="cell-strong">{row.merchant_name || '-'}</div>
-                    <div className="cell-muted">{row.merchant_email || ''}</div>
                   </td>
                   <td>
                     <div className="cell-strong wrap-anywhere">{row.order_id || row.pa_order_id || '-'}</div>

@@ -5,6 +5,10 @@ function formatDate(value) {
   return value ? new Date(value).toLocaleString() : '-'
 }
 
+function formatDateOnly(value) {
+  return value ? new Date(value).toLocaleDateString() : '-'
+}
+
 function formatAction(value) {
   return (value || '').replace(/_/g, ' ')
 }
@@ -13,15 +17,22 @@ function auditOrderId(row) {
   return row.order_id || row.metadata?.merchant_order_id || row.metadata?.order_id || row.metadata?.provider_order_id || '-'
 }
 
+function formatCaseId(row) {
+  const caseId = String(row.case_id || '-')
+  if (row.case_type === 'enquiry') return caseId.replace(/^enquiry[\s:_-]*/i, '') || caseId
+  return caseId.replace(new RegExp(`^${row.case_type}[\\s:_-]*`, 'i'), '') || caseId
+}
+
 function formatLabel(value) {
   const labels = {
     note: 'Note',
     note_id: 'Note ID',
     status: 'Enquiry Status',
     resolution_status: 'Decision',
-    resolution_reason: 'Reason',
+    resolution_reason: 'Remarks',
     resolved_by: 'Decision By',
-    resolved_at: 'Decision Time',
+    resolved_at: 'Last Updated',
+    updated_at: 'Last Updated',
     provider: 'Provider',
     amount: 'Amount',
     currency: 'Currency',
@@ -38,7 +49,7 @@ function formatLabel(value) {
 }
 
 function formatProofValue(key, value) {
-  if (value === null || value === undefined || value === '') return 'Not set'
+  if (value === null || value === undefined || value === '') return '-'
   if (typeof value === 'boolean') return value ? 'Yes' : 'No'
   if (key.endsWith('_at') || key.includes('time')) return formatDate(value)
   if (typeof value === 'string') return formatAction(value)
@@ -47,19 +58,35 @@ function formatProofValue(key, value) {
   return JSON.stringify(value)
 }
 
-function ProofInfo({ value }) {
-  if (!value || (Array.isArray(value) && value.length === 0) || Object.keys(value).length === 0) {
-    return <span className="cell-muted">-</span>
-  }
+function auditDetailRows(oldValues, newValues) {
+  const previous = oldValues && !Array.isArray(oldValues) ? oldValues : {}
+  const next = newValues && !Array.isArray(newValues) ? newValues : {}
+  return Array.from(new Set([...Object.keys(previous), ...Object.keys(next)]))
+}
+
+function AuditDetailsTable({ oldValues, newValues }) {
+  const rows = auditDetailRows(oldValues, newValues)
+  if (rows.length === 0) return <span className="cell-muted">-</span>
+
   return (
-    <div className="audit-proof-list">
-      {Object.entries(value).map(([key, item]) => (
-        <div className="audit-proof-row" key={key}>
-          <span>{formatLabel(key)}</span>
-          <strong>{formatProofValue(key, item)}</strong>
-        </div>
-      ))}
-    </div>
+    <table className="audit-details-table">
+      <thead>
+        <tr>
+          <th>Property</th>
+          <th>Old Data</th>
+          <th>New Data</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((key) => (
+          <tr key={key}>
+            <td>{formatLabel(key)}</td>
+            <td>{formatProofValue(key, oldValues?.[key])}</td>
+            <td>{formatProofValue(key, newValues?.[key])}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   )
 }
 
@@ -223,7 +250,7 @@ export default function AuditTrailPage() {
           <table className="audit-table">
             <thead>
               <tr>
-                <th>Date & Time</th>
+                <th>Date</th>
                 <th>Case</th>
                 <th>Order ID</th>
                 <th>Action</th>
@@ -246,10 +273,9 @@ export default function AuditTrailPage() {
                 rows.map((row) => (
                   <Fragment key={row.id}>
                     <tr key={row.id}>
-                      <td><span className="cell-muted">{formatDate(row.created_at)}</span></td>
+                      <td><span className="cell-muted">{formatDateOnly(row.created_at)}</span></td>
                       <td>
-                        <div className="cell-strong">{row.case_id}</div>
-                        <div className="cell-muted">{row.case_type}</div>
+                        <div className="cell-strong">{formatCaseId(row)}</div>
                       </td>
                       <td><span className="cell-strong">{auditOrderId(row)}</span></td>
                       <td><span className="status-pill status-created">{formatAction(row.action)}</span></td>
@@ -269,16 +295,7 @@ export default function AuditTrailPage() {
                     {expandedId === row.id && (
                       <tr key={`${row.id}-details`}>
                         <td colSpan={8}>
-                          <div className="audit-detail-grid">
-                            <div>
-                              <h3>Old Values</h3>
-                              <ProofInfo value={row.old_values} />
-                            </div>
-                            <div>
-                              <h3>New Values</h3>
-                              <ProofInfo value={row.new_values} />
-                            </div>
-                          </div>
+                          <AuditDetailsTable oldValues={row.old_values} newValues={row.new_values} />
                         </td>
                       </tr>
                     )}

@@ -16,6 +16,7 @@ export default function AllUsersPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [accessUser, setAccessUser] = useState(null)
+  const [deleteUser, setDeleteUser] = useState(null)
   const [search, setSearch] = useState('')
 
   const load = useCallback(() => {
@@ -49,16 +50,16 @@ export default function AllUsersPage() {
     }
   }
 
-  async function handleDelete(user) {
-    const confirmed = window.confirm(`Delete admin account "${user.username}"?`)
-    if (!confirmed) return
+  async function handleDelete() {
+    if (!deleteUser) return
 
-    setSavingId(user.id)
+    setSavingId(deleteUser.id)
     setError('')
     setSuccess('')
     try {
-      await api.deleteAdminUser(user.id)
-      setSuccess(`Deleted ${user.username}.`)
+      await api.deleteAdminUser(deleteUser.id)
+      setSuccess(`Deleted ${deleteUser.username}.`)
+      setDeleteUser(null)
       load()
     } catch (err) {
       setError(err.message)
@@ -87,7 +88,7 @@ export default function AllUsersPage() {
                 <path d="M8.5 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm7-1.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM3.5 18.5a5 5 0 0 1 10 0v1h-10v-1Zm11 1v-1a4 4 0 0 0-1.1-2.75 4.5 4.5 0 0 1 7.1 3.75h-6Z" />
               </svg>
             </span>
-            Users <span className="count-badge">{users.length}</span>
+            Users
           </div>
         </div>
 
@@ -136,7 +137,6 @@ export default function AllUsersPage() {
                   <tr key={user.id}>
                     <td>
                       <div className="cell-strong">{user.username}</div>
-                      <div className="cell-muted">ID: {user.id}</div>
                     </td>
                     <td>{user.email || '-'}</td>
                     <td>
@@ -171,7 +171,7 @@ export default function AllUsersPage() {
                       <button
                         type="button"
                         className="danger-link-button"
-                        onClick={() => handleDelete(user)}
+                        onClick={() => setDeleteUser(user)}
                         disabled={savingId === user.id || user.id === admin?.id}
                       >
                         Delete
@@ -196,6 +196,34 @@ export default function AllUsersPage() {
           }}
           onError={setError}
         />
+      )}
+
+      {deleteUser && (
+        <Modal title={`Delete User - ${deleteUser.username}`} onClose={() => setDeleteUser(null)} width={520}>
+          <div className="merchant-delete-preview">
+            <p>
+              Are you sure you want to delete this admin user? This account will be removed from admin access.
+            </p>
+            <div className="modal-footer">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setDeleteUser(null)}
+                disabled={savingId === deleteUser.id}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="danger-link-button"
+                onClick={() => void handleDelete()}
+                disabled={savingId === deleteUser.id}
+              >
+                {savingId === deleteUser.id ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   )

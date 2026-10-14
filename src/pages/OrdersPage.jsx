@@ -13,7 +13,7 @@ import ecomExpressLogo from '../assets/couriers/ecom-express.png'
 import ekartLogo from '../assets/couriers/ekart-real.png'
 import shadowfaxLogo from '../assets/couriers/shadowfax.svg'
 import shiprocketLogo from '../assets/couriers/shiprocket-real.png'
-import xpressbeesLogo from '../assets/couriers/xpressbees-real.png'
+import xpressbeesLogo from '../assets/couriers/xpressbees-wordmark.svg'
 
 const courierLogos = [
   { keys: ['blue dart', 'bluedart', 'blue_dart'], label: 'Blue Dart', logo: blueDartLogo },
@@ -46,7 +46,7 @@ function CourierLogoCell({ courier }) {
   if (!match) return <span className="courier-logo-fallback">{courier}</span>
 
   return (
-    <span className="courier-logo-cell" title={courier}>
+    <span className={`courier-logo-cell courier-logo-${normalizeCourierName(match.label).replaceAll(' ', '-')}`} title={courier}>
       <img src={match.logo} alt={`${match.label} logo`} />
     </span>
   )
@@ -68,6 +68,30 @@ function formatDateTime(value) {
     second: '2-digit',
     hour12: false,
   })
+}
+
+function formatDateOnly(value) {
+  if (!value) return '-'
+  return new Date(value).toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
+}
+
+function formatStatusLabel(value) {
+  if (!value) return '-'
+  return String(value)
+    .replace(/[_-]+/g, ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase())
+}
+
+function StatusPill({ value, className = '' }) {
+  if (!value) {
+    return <span className="status-dash">-</span>
+  }
+  return <span className={`status-pill ${className}`}>{value}</span>
 }
 
 // Couriers TrackParcel supports for the one-click "Track" button below —
@@ -111,6 +135,72 @@ function TrackParcelTrackButton({ awb, courier }) {
   )
 }
 
+function LabelReportModal({ report, onClose }) {
+  if (!report) return null
+
+  const shownRows = report.rows || []
+
+  return (
+    <div className="modal-overlay label-report-overlay" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <div className="modal-card label-report-modal" role="dialog" aria-modal="true" aria-label="Shipment label rejection report">
+        <div className="modal-header">
+          <div className="label-report-title">
+            <span>Shipment label report</span>
+            <h3>{report.file_name || 'Rejected PDF'}</h3>
+          </div>
+          <button type="button" className="modal-close" aria-label="Close" onClick={onClose}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 6l12 12M18 6 6 18" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="modal-body label-report-body">
+          <div className="label-report-failure">
+            <span>Failure basis</span>
+            <p>{report.failure_summary || 'One or more required validation checks failed.'}</p>
+          </div>
+
+          <div className="label-report-table-wrap">
+            <table className="label-report-table">
+              <thead>
+                <tr>
+                  <th>Property</th>
+                  <th>Why this matters</th>
+                  <th>Report</th>
+                </tr>
+              </thead>
+              <tbody>
+                {shownRows.length ? shownRows.map((row, index) => (
+                  <tr key={`${row.property}-${index}`}>
+                    <td>
+                      <strong>{row.property}</strong>
+                      <span className={`label-report-status ${row.result === 'Failed' ? 'is-failed' : 'is-passed'}`}>
+                        {row.result}
+                      </span>
+                    </td>
+                    <td>{row.why || '-'}</td>
+                    <td>
+                      <div className="label-report-values">
+                        <span><b>Expected real PDF:</b> {row.expected || '-'}</span>
+                        <span><b>Uploaded PDF:</b> {row.actual || '-'}</span>
+                      </div>
+                    </td>
+                  </tr>
+                )) : (
+                  <tr>
+                    <td colSpan="3">No detailed report was stored for this PDF.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // Column defs double as both the table header/cell renderer and the list
 // ColumnPicker offers to show/hide — keeping them in one array avoids the
 // two ever drifting out of sync.
@@ -128,12 +218,7 @@ const COLUMNS = [
   {
     key: 'merchant',
     label: 'Merchant',
-    render: (row) => (
-      <>
-        <div className="cell-strong">{row.merchant__merchant_name}</div>
-        <div className="cell-muted">{row.merchant__merchant_email}</div>
-      </>
-    ),
+    render: (row) => <span className="cell-strong cell-single-line">{row.merchant__merchant_name || '-'}</span>,
   },
   {
     key: 'customer',
@@ -141,13 +226,17 @@ const COLUMNS = [
     render: (row) => <span className="cell-single-line">{row.customer_info__customer_name}</span>,
   },
   {
-    key: 'contact',
-    label: 'Contact',
+    key: 'phone',
+    label: 'Phone',
+    render: (row) => <span className="cell-muted cell-single-line">{row.customer_info__customer_phone || '-'}</span>,
+  },
+  {
+    key: 'email',
+    label: 'Email',
     render: (row) => (
-      <>
-        <div className="cell-muted">{row.customer_info__customer_phone}</div>
-        <div className="cell-muted">{row.customer_info__customer_email}</div>
-      </>
+      <span className="cell-muted order-email-cell" title={row.customer_info__customer_email || ''}>
+        {row.customer_info__customer_email || '-'}
+      </span>
     ),
   },
   { key: 'amount', label: 'Amount', render: (row) => <span className="cell-single-line">{formatAmount(row.order_amount)}</span> },
@@ -170,9 +259,10 @@ const COLUMNS = [
     label: 'Shipment Status',
     render: (row) => (
       <span className="table-chip-cell">
-        <span className={`status-pill status-${(row.shipment_id__status || '').toLowerCase()}`}>
-          {row.shipment_id__status || '-'}
-        </span>
+        <StatusPill
+          value={row.shipment_id__status ? formatStatusLabel(row.shipment_id__status) : ''}
+          className={`status-${(row.shipment_id__status || '').toLowerCase()}`}
+        />
       </span>
     ),
   },
@@ -202,10 +292,31 @@ const COLUMNS = [
     ),
   },
   {
+    key: 'shipment_label_reason',
+    label: 'Reason',
+    render: (row, { openLabelReport } = {}) => {
+      if (row.shipment_label_status === 'approved') {
+        return <span className="cell-muted">-</span>
+      }
+      if (row.shipment_label_status === 'not_approved' && row.shipment_label_report) {
+        return (
+          <button type="button" className="table-action-link label-report-link" onClick={() => openLabelReport(row.shipment_label_report)}>
+            View report
+          </button>
+        )
+      }
+      return (
+        <span className="cell-muted order-reason-cell" title={row.shipment_label_reason || ''}>
+          {row.shipment_label_reason || '-'}
+        </span>
+      )
+    },
+  },
+  {
     key: 'date',
     label: 'Date',
     render: (row) => (
-      <span className="cell-muted">{row.order_date ? new Date(row.order_date).toLocaleString() : '—'}</span>
+      <span className="cell-muted">{formatDateOnly(row.order_date)}</span>
     ),
   },
   {
@@ -266,9 +377,11 @@ export default function OrdersPage() {
     courier: '',
     deliveryStatus: '',
     shipmentLabelStatus: '',
+    sortOrder: 'newest',
   })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  const [labelReport, setLabelReport] = useState(null)
   const pageNumbers = Array.from({ length: totalPages }, (_, index) => index + 1)
 
   const { visibleColumns } = useColumnVisibility(
@@ -291,6 +404,7 @@ export default function OrdersPage() {
         courier: filters.courier,
         delivery_status: filters.deliveryStatus,
         shipment_label_status: filters.shipmentLabelStatus,
+        sort: filters.sortOrder,
       })
       .then((data) => {
         setRows(data.results)
@@ -343,6 +457,7 @@ export default function OrdersPage() {
       courier: '',
       deliveryStatus: '',
       shipmentLabelStatus: '',
+      sortOrder: 'newest',
     })
   }
 
@@ -399,6 +514,7 @@ export default function OrdersPage() {
             <label htmlFor="date-from">From date:</label>
             <input
               id="date-from"
+              className="orders-date-input"
               type="date"
               value={filters.dateFrom}
               onChange={(e) => handleFilterChange('dateFrom', e.target.value)}
@@ -408,6 +524,7 @@ export default function OrdersPage() {
             <label htmlFor="date-to">To date:</label>
             <input
               id="date-to"
+              className="orders-date-input"
               type="date"
               value={filters.dateTo}
               onChange={(e) => handleFilterChange('dateTo', e.target.value)}
@@ -456,6 +573,17 @@ export default function OrdersPage() {
               <option value="CANCELLED">Cancelled</option>
             </select>
           </div>
+          <div className="toolbar-field">
+            <label htmlFor="sort-order">Sort:</label>
+            <select
+              id="sort-order"
+              value={filters.sortOrder}
+              onChange={(e) => handleFilterChange('sortOrder', e.target.value)}
+            >
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+            </select>
+          </div>
           <button type="button" onClick={load}>
             Refresh
           </button>
@@ -502,7 +630,7 @@ export default function OrdersPage() {
                 rows.map((row) => (
                   <tr key={row.id}>
                     {visibleColumns.map((col) => (
-                      <td key={col.key}>{col.render(row)}</td>
+                      <td key={col.key}>{col.render(row, { openLabelReport: setLabelReport })}</td>
                     ))}
                   </tr>
                 ))
@@ -532,6 +660,7 @@ export default function OrdersPage() {
           </div>
       </div>
       </div>
+      <LabelReportModal report={labelReport} onClose={() => setLabelReport(null)} />
     </div>
   )
 }

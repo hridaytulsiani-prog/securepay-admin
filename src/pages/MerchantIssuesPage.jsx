@@ -134,6 +134,39 @@ function EscroSafeAvatar() {
   )
 }
 
+function MerchantIssueDetails({ row }) {
+  return (
+    <div className="cis-details">
+      <div className="cis-details-grid">
+        <div className="sr-field">
+          <span>Merchant</span>
+          <strong>{row.merchant_name || '-'}</strong>
+        </div>
+        <div className="sr-field">
+          <span>Email</span>
+          <strong>{row.merchant_email || '-'}</strong>
+        </div>
+        <div className="sr-field">
+          <span>Ticket</span>
+          <strong>{row.reference || '-'}</strong>
+        </div>
+        <div className="sr-field">
+          <span>Raised</span>
+          <strong>{formatDate(row.created_at)}</strong>
+        </div>
+        <div className="sr-field">
+          <span>Issue</span>
+          <strong>{row.issue_type_label || '-'}</strong>
+        </div>
+        <div className="sr-field">
+          <span>Orders</span>
+          <strong>{(row.orders || []).length || '-'}</strong>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // Chat with the merchant, laid out like WhatsApp from the admin's side: the merchant's messages on the left, the
 // admin's (EscroSafe) replies on the right.
 export function ChatModal({ row, onClose, onChanged }) {
@@ -215,7 +248,11 @@ export function ChatModal({ row, onClose, onChanged }) {
       width={760}
     >
       <div className="issue-chat-modal">
-        <div className="issue-chat-top">
+        <div className="issue-chat-top cis-chat-top">
+          <details className="issue-note-box cis-chat-details">
+            <summary>Details</summary>
+            <MerchantIssueDetails row={row} />
+          </details>
           <label className="issue-status-control">
             <span>Status</span>
             <select value={row.status} onChange={handleStatusChange} disabled={savingStatus}>
@@ -294,11 +331,10 @@ export function ChatModal({ row, onClose, onChanged }) {
 
 export default function MerchantIssuesPage() {
   const [rows, setRows] = useState([])
-  const [counts, setCounts] = useState({ new: 0, in_progress: 0, resolved: 0 })
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [total, setTotal] = useState(0)
-  const [limit, setLimit] = useState(25)
+  const limit = 25
   // /dashboard/merchant-issues?q=ISS-00012 opens the list already searched (used by the top-bar search).
   const [searchParams] = useSearchParams()
   const [q, setQ] = useState(searchParams.get('q') || '')
@@ -315,7 +351,6 @@ export default function MerchantIssuesPage() {
       .merchantIssues({ page, limit, q, status: statusFilter, type: typeFilter })
       .then((data) => {
         setRows(data.results || [])
-        setCounts(data.counts || { new: 0, in_progress: 0, resolved: 0 })
         setTotalPages(data.total_pages || 1)
         setTotal(data.total || 0)
         setError('')
@@ -336,7 +371,7 @@ export default function MerchantIssuesPage() {
 
   const chatRow = rows.find((row) => row.id === chatId) || null
   const ordersRow = rows.find((row) => row.id === ordersId) || null
-  const allCount = counts.new + counts.in_progress + counts.resolved
+  const pageNumbers = Array.from({ length: totalPages }, (_, index) => index + 1)
 
   return (
     <div className="audit-page">
@@ -355,31 +390,25 @@ export default function MerchantIssuesPage() {
           Issues merchants raise from their dashboard about specific orders. Open the orders to see them, or open the details to chat with the merchant and set the status.
         </p>
 
-        <div className="contact-filter-chips" role="tablist" aria-label="Filter by status">
-          {STATUS_FILTERS.map((item) => {
-            const count = item.value ? counts[item.value] : allCount
-            return (
-              <button
-                key={item.value || 'all'}
-                type="button"
-                role="tab"
-                aria-selected={statusFilter === item.value}
-                className={`contact-chip${statusFilter === item.value ? ' is-active' : ''}`}
-                onClick={() => {
-                  setPage(1)
-                  setStatusFilter(item.value)
-                }}
-              >
-                {item.label} <span>{count}</span>
-              </button>
-            )
-          })}
-        </div>
-
         <form className="toolbar audit-toolbar" onSubmit={handleSearch}>
           <div className="toolbar-field">
             <label htmlFor="issue-search">Search:</label>
             <input id="issue-search" name="search" placeholder="ISS-00012, merchant, order ID or text" defaultValue={q} />
+          </div>
+          <div className="toolbar-field">
+            <label htmlFor="issue-status">Status:</label>
+            <select
+              id="issue-status"
+              value={statusFilter}
+              onChange={(event) => {
+                setStatusFilter(event.target.value)
+                setPage(1)
+              }}
+            >
+              {STATUS_FILTERS.map((status) => (
+                <option key={status.value || 'all'} value={status.value}>{status.label}</option>
+              ))}
+            </select>
           </div>
           <div className="toolbar-field">
             <label htmlFor="issue-type">Issue:</label>
@@ -395,22 +424,6 @@ export default function MerchantIssuesPage() {
               {ISSUE_TYPES.map((type) => (
                 <option key={type.value} value={type.value}>{type.label}</option>
               ))}
-            </select>
-          </div>
-          <div className="toolbar-field">
-            <label htmlFor="issue-rows">Rows:</label>
-            <select
-              id="issue-rows"
-              value={limit}
-              onChange={(event) => {
-                setLimit(Number(event.target.value))
-                setPage(1)
-              }}
-            >
-              <option value={10}>10</option>
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
             </select>
           </div>
           <button type="submit">Search</button>
@@ -460,7 +473,6 @@ export default function MerchantIssuesPage() {
                     </td>
                     <td>
                       <span className={`status-pill ${STATUS_PILL_CLASS[row.status] || ''}`}>{row.status_label}</span>
-                      {row.awaiting_reply && row.status !== 'resolved' ? <div className="cell-muted issue-awaiting">Needs a reply</div> : null}
                     </td>
                     <td>
                       <button type="button" className="table-action-link" onClick={() => setChatId(row.id)}>
@@ -474,14 +486,21 @@ export default function MerchantIssuesPage() {
           </table>
         </div>
 
-        <div className="pagination audit-pagination">
-          <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+        <div className="contact-pagination">
+          <button type="button" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
             Prev
           </button>
-          <span>
-            Page {page} of {totalPages} ({total} {total === 1 ? 'issue' : 'issues'})
-          </span>
-          <button disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+          {pageNumbers.map((pageNumber) => (
+            <button
+              key={pageNumber}
+              type="button"
+              className={pageNumber === page ? 'is-active' : ''}
+              onClick={() => setPage(pageNumber)}
+            >
+              {pageNumber}
+            </button>
+          ))}
+          <button type="button" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
             Next
           </button>
         </div>

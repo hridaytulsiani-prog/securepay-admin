@@ -4,7 +4,10 @@ import { api } from '../api/client'
 function pretty(value) {
   if (value === 'MANUAL_REVIEW' || value === 'UNDER_REVIEW') return 'Needs Review'
   if (value === 'NOT_UPLOADED' || value === 'NOT_FOUND') return 'Not Uploaded'
-  return String(value || '-').replaceAll('_', ' ')
+  return String(value || '-')
+    .replaceAll('_', ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase())
 }
 
 function statusClass(value) {
@@ -31,12 +34,12 @@ function decisionReason(order) {
     return 'PDF verification and courier verification are successful, so the merchant amount can be released.'
   }
   if (decision === 'REFUND') {
-    if (pdfStatus === 'NOT_APPROVED') return 'Merchant PDF verification failed, so refund is selected.'
-    if (courierStatus === 'NOT_VERIFIED') return 'Courier verification failed, so refund is selected.'
-    return 'Verification checks did not pass, so refund is selected.'
+    if (pdfStatus === 'NOT_APPROVED') return 'Merchant PDF verification failed'
+    if (courierStatus === 'NOT_VERIFIED') return 'Courier verification failed'
+    return 'Verification checks did not pass'
   }
   if (decision === 'MANUAL_REVIEW') {
-    return 'This order needs manual review before any final financial command can be sent.'
+    return 'This order needs manual review'
   }
   return 'Waiting for successful PDF and courier verification before release/refund command.'
 }
@@ -52,6 +55,7 @@ function finalCommandLabel(order) {
 }
 
 export default function PAControlPlanePage() {
+  const pageSize = 25
   const [orders, setOrders] = useState([])
   const [selectedId, setSelectedId] = useState('')
   const [q, setQ] = useState('')
@@ -59,6 +63,8 @@ export default function PAControlPlanePage() {
   const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
   const [acting, setActing] = useState(false)
+  const [page, setPage] = useState(1)
+  const [sortOrder, setSortOrder] = useState('newest')
 
   const selected = useMemo(
     () => orders.find((item) => item.vaultpay_order_id === selectedId) || orders[0] || null,
@@ -73,6 +79,7 @@ export default function PAControlPlanePage() {
       .then((orderData) => {
         const nextOrders = orderData.results || []
         setOrders(nextOrders)
+        setPage(1)
         if (!selectedId && nextOrders[0]) setSelectedId(nextOrders[0].vaultpay_order_id)
       })
       .catch((err) => setError(err.message))
@@ -108,6 +115,19 @@ export default function PAControlPlanePage() {
   }
 
   const commandDisabled = !selected || acting || !['RELEASE', 'REFUND'].includes(selected.decision_state) || selected.command?.status === 'ACCEPTED'
+  const totalPages = Math.max(1, Math.ceil(orders.length / pageSize))
+  const pageNumbers = Array.from({ length: totalPages }, (_, index) => index + 1)
+  const sortedOrders = useMemo(() => {
+    const getTime = (order) => new Date(order.updated_at || order.created_at || order.order_date || 0).getTime()
+    return [...orders].sort((a, b) => (
+      sortOrder === 'oldest' ? getTime(a) - getTime(b) : getTime(b) - getTime(a)
+    ))
+  }, [orders, sortOrder])
+  const visibleOrders = sortedOrders.slice((page - 1) * pageSize, page * pageSize)
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages)
+  }, [page, totalPages])
 
   return (
     <div className="pa-page">
@@ -135,11 +155,28 @@ export default function PAControlPlanePage() {
             <input
               id="pa-search"
               value={q}
-              onChange={(event) => setQ(event.target.value)}
+              onChange={(event) => {
+                setQ(event.target.value)
+                setPage(1)
+              }}
               placeholder="order id, provider ref, merchant"
             />
           </div>
           <button type="submit">{loading ? 'Loading...' : 'Search'}</button>
+          <div className="toolbar-field">
+            <label htmlFor="pa-sort-order">Sort:</label>
+            <select
+              id="pa-sort-order"
+              value={sortOrder}
+              onChange={(event) => {
+                setSortOrder(event.target.value)
+                setPage(1)
+              }}
+            >
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+            </select>
+          </div>
           <button type="button" onClick={() => load({ sync: true })}>
             Refresh
           </button>
@@ -174,7 +211,7 @@ export default function PAControlPlanePage() {
             <tbody>
               {orders.length === 0 ? (
                 <tr><td colSpan={11} className="empty-row">No real orders found for PA control.</td></tr>
-              ) : orders.map((order) => (
+              ) : visibleOrders.map((order) => (
                 <tr
                   key={order.vaultpay_order_id}
                   className={selected?.vaultpay_order_id === order.vaultpay_order_id ? 'selected-row' : ''}
@@ -186,7 +223,6 @@ export default function PAControlPlanePage() {
                   <td>{order.merchant_name || '-'}</td>
                   <td>
                     <div>{order.customer?.name || '-'}</div>
-                    <div className="cell-muted">{order.customer?.phone || ''}</div>
                   </td>
                   <td>{formatMoney(order)}</td>
                   <td><span className={statusClass(order.payment_state)}>{pretty(order.payment_state)}</span></td>
@@ -219,9 +255,33 @@ export default function PAControlPlanePage() {
             </tbody>
           </table>
         </div>
+        <div className="pa-pagination">
+          <span className="pa-pagination-summary">
+            Showing {visibleOrders.length} of {orders.length} PA orders.
+          </span>
+          <div className="pa-pagination-controls" aria-label="PA orders pagination">
+            <button type="button" disabled={page <= 1} onClick={() => setPage((current) => current - 1)}>
+              Previous
+            </button>
+            {pageNumbers.map((pageNumber) => (
+              <button
+                type="button"
+                key={pageNumber}
+                className={pageNumber === page ? 'is-active' : ''}
+                onClick={() => setPage(pageNumber)}
+              >
+                {pageNumber}
+              </button>
+            ))}
+            <button type="button" disabled={page >= totalPages} onClick={() => setPage((current) => current + 1)}>
+              Next
+            </button>
+          </div>
+        </div>
       </section>
 
-      {selected ? (
+      {/* PA detail sections are intentionally hidden from the UI, but kept here for future workflow use. */}
+      {false && selected ? (
         <>
           <section className="pa-section">
             <div className="section-title">Selected Order Proof</div>

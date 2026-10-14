@@ -35,7 +35,8 @@ const NAV_GROUPS = [
       { to: '/dashboard', end: true, label: 'Dashboard', icon: 'dashboard', permission: 'dashboard.view' },
       { to: '/dashboard/orders', label: 'Orders', icon: 'orders', permission: 'orders.view' },
       { to: '/dashboard/needs-attention', label: 'Needs Attention', icon: 'attention', permission: 'needs_attention.view' },
-      { to: '/dashboard/enquiries', label: 'Enquiries', icon: 'enquiries', permission: 'enquiries.view' },
+      // Temporarily hidden from the admin UI; keep the route/page code available for later.
+      // { to: '/dashboard/enquiries', label: 'Enquiries', icon: 'enquiries', permission: 'enquiries.view' },
     ],
   },
   {

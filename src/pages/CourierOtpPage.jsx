@@ -134,7 +134,7 @@ export default function CourierOtpPage({
     <div>
       <h1>{pageTitle || `EscroSafe - ${courierName} OTP Check`}</h1>
 
-      <div className="panel-card">
+      <div className="panel-card courier-otp-check-card">
         <form className="toolbar" onSubmit={handleSubmit}>
           <div className="toolbar-field awb-field">
             <label htmlFor="awb">{awbLabel || `${courierName} AWB:`}</label>
@@ -151,12 +151,10 @@ export default function CourierOtpPage({
             {loading ? 'Checking...' : checkButtonLabel || 'Check OTP'}
           </button>
         </form>
-      </div>
 
-      {error && <div className="error-banner">{error}</div>}
+        {error && <div className="error-banner">{error}</div>}
 
-      <div className="panel-card">
-        <div className="section-title">
+        <div className="section-title courier-otp-result-title">
           <div className="section-title-left">Verification Result</div>
         </div>
 

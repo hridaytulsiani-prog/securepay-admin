@@ -14,7 +14,6 @@ export default function MerchantUsersPage() {
   // /dashboard/<page>?q=... opens the page already searched (used by the top-bar search).
   const [searchParams] = useSearchParams()
   const [q, setQ] = useState(searchParams.get('q') || '')
-  const [editMerchant, setEditMerchant] = useState(null)
   const [deleteMerchant, setDeleteMerchant] = useState(null)
   const [deleteError, setDeleteError] = useState('')
   const [deleteSuccess, setDeleteSuccess] = useState('')
@@ -70,7 +69,7 @@ export default function MerchantUsersPage() {
                 <path d="M4 10.5V20h16v-9.5M3 10.5h18L19 4H5l-2 6.5ZM9 20v-5h6v5" />
               </svg>
             </span>
-            Merchants <span className="count-badge">{merchants.length}</span>
+            Merchants
           </div>
         </div>
 
@@ -119,7 +118,6 @@ export default function MerchantUsersPage() {
                   <tr key={merchant.id}>
                     <td>
                       <div className="cell-strong">{merchant.merchant_name}</div>
-                      <div className="cell-muted">ID: {merchant.id}</div>
                     </td>
                     <td>{merchant.merchant_email || '-'}</td>
                     <td>{merchant.username || '-'}</td>
@@ -129,15 +127,11 @@ export default function MerchantUsersPage() {
                       <div className="merchant-user-actions">
                         <button
                           type="button"
-                          className="table-action-link"
-                          onClick={() => setEditMerchant(merchant)}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
                           className="danger-link-button"
-                          onClick={() => setDeleteMerchant(merchant)}
+                          onClick={() => {
+                            setDeleteError('')
+                            setDeleteMerchant(merchant)
+                          }}
                         >
                           Delete
                         </button>
@@ -151,10 +145,6 @@ export default function MerchantUsersPage() {
         </div>
       </div>
 
-      {editMerchant && (
-        <MerchantAccessModal merchant={editMerchant} onClose={() => setEditMerchant(null)} />
-      )}
-
       {deleteMerchant && (
         <Modal title={`Delete Merchant - ${deleteMerchant.merchant_name}`} onClose={() => setDeleteMerchant(null)} width={520}>
           <div className="merchant-delete-preview">
@@ -164,7 +154,7 @@ export default function MerchantUsersPage() {
             {deleteError && <div className="error-banner">{deleteError}</div>}
             <div className="modal-footer">
               <button type="button" className="btn-secondary" onClick={() => setDeleteMerchant(null)} disabled={isDeleting}>
-                Close
+                Cancel
               </button>
               <button type="button" className="danger-link-button" onClick={() => void handleDeleteMerchant()} disabled={isDeleting}>
                 {isDeleting ? 'Deleting...' : 'Delete'}

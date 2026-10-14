@@ -148,7 +148,7 @@ export default function ContactMessagesPage({ source = 'customer' }) {
 
   const selectedRow = rows.find((row) => row.id === selectedId) || null
 
-  const allCount = counts.new + counts.in_progress + counts.resolved
+  const pageNumbers = Array.from({ length: totalPages }, (_, index) => index + 1)
 
   return (
     <div className="audit-page">
@@ -169,43 +169,23 @@ export default function ContactMessagesPage({ source = 'customer' }) {
             : 'Messages sent from the "Get in touch" form on the customer page. Open a message to read it, change its status or reply by email.'}
         </p>
 
-        <div className="contact-filter-chips" role="tablist" aria-label="Filter by status">
-          {STATUS_FILTERS.map((item) => {
-            const count = item.value ? counts[item.value] : allCount
-            return (
-              <button
-                key={item.value || 'all'}
-                type="button"
-                role="tab"
-                aria-selected={statusFilter === item.value}
-                className={`contact-chip${statusFilter === item.value ? ' is-active' : ''}`}
-                onClick={() => handleStatusFilter(item.value)}
-              >
-                {item.label} <span>{count}</span>
-              </button>
-            )
-          })}
-        </div>
-
         <form className="toolbar audit-toolbar" onSubmit={handleSearch}>
           <div className="toolbar-field">
             <label htmlFor="contact-search">Search:</label>
             <input id="contact-search" name="search" placeholder={isMerchant ? 'name, email or message' : 'name, email, order ID or message'} defaultValue={q} />
           </div>
           <div className="toolbar-field">
-            <label htmlFor="contact-rows">Rows:</label>
+            <label htmlFor="contact-status">Status:</label>
             <select
-              id="contact-rows"
-              value={limit}
-              onChange={(event) => {
-                setLimit(Number(event.target.value))
-                setPage(1)
-              }}
+              id="contact-status"
+              value={statusFilter}
+              onChange={(event) => handleStatusFilter(event.target.value)}
             >
-              <option value={10}>10</option>
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
+              {STATUS_FILTERS.map((item) => (
+                <option key={item.value || 'all'} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
             </select>
           </div>
           <button type="submit">Search</button>
@@ -260,14 +240,21 @@ export default function ContactMessagesPage({ source = 'customer' }) {
           </table>
         </div>
 
-        <div className="pagination audit-pagination">
-          <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+        <div className="contact-pagination">
+          <button type="button" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
             Prev
           </button>
-          <span>
-            Page {page} of {totalPages} ({total} {isMerchant ? (total === 1 ? 'query' : 'queries') : (total === 1 ? 'message' : 'messages')})
-          </span>
-          <button disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+          {pageNumbers.map((pageNumber) => (
+            <button
+              key={pageNumber}
+              type="button"
+              className={pageNumber === page ? 'is-active' : ''}
+              onClick={() => setPage(pageNumber)}
+            >
+              {pageNumber}
+            </button>
+          ))}
+          <button type="button" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
             Next
           </button>
         </div>
