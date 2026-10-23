@@ -1,12 +1,12 @@
-// A ticket reference (merchant or customer) that opens its chat window right where you are (no page change).
+// A ticket reference that opens its appropriate detail view without leaving the page.
 import { useState } from 'react'
 import { api } from '../api/client'
-import { ChatModal as CustomerChatModal, DetailsModal } from '../pages/CustomerIssuesPage'
+import { CustomerIssueCaseModal, DetailsModal } from '../pages/CustomerIssuesPage'
 import { ChatModal as MerchantChatModal } from '../pages/MerchantIssuesPage'
 
 export default function TicketChatLink({ reference, kind = 'merchant', view = 'chat', children }) {
   const customer = kind === 'customer'
-  const ChatModal = customer ? CustomerChatModal : MerchantChatModal
+  const TicketModal = customer ? CustomerIssueCaseModal : MerchantChatModal
   const [row, setRow] = useState(null)
   const [busy, setBusy] = useState(false)
 
@@ -32,7 +32,7 @@ export default function TicketChatLink({ reference, kind = 'merchant', view = 'c
         {children}
       </button>
       {row && view === 'details' ? <DetailsModal row={row} onClose={() => setRow(null)} /> : null}
-      {row && view !== 'details' ? <ChatModal key={row.id} row={row} onClose={() => setRow(null)} onChanged={load} /> : null}
+      {row && view !== 'details' ? <TicketModal key={row.id} row={row} onClose={() => setRow(null)} onChanged={load} /> : null}
     </>
   )
 }

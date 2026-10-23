@@ -4,6 +4,8 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { api } from '../api/client'
+import CourierLabel from '../components/CourierLabel'
+import OrderDecisionControls from '../components/OrderDecisionControls'
 import TicketChatLink from '../components/TicketChatLink'
 import { NotesBlock, TagIcon } from '../components/TicketCardParts'
 
@@ -40,22 +42,44 @@ function Quote({ children, by, time, ours }) {
   )
 }
 
-const PAID_STATES = ['PAYMENT_CAPTURED', 'CAPTURED', 'FUNDS_HELD', 'HELD', 'PAID']
-const PAID_OUT_STATES = ['SETTLED', 'RELEASED', 'PAYOUT_COMPLETED']
-const REFUND_STATES = ['REFUNDED', 'REFUND', 'REFUND_COMPLETED']
+function paStatusClass(value) {
+  const status = String(value || '').toUpperCase()
+  if (['SETTLED', 'RELEASED', 'PAYOUT_COMPLETED'].some((item) => status.includes(item))) return 'status-success'
+  if (['FAILED', 'CANCELLED', 'REFUNDED', 'REJECTED'].some((item) => status.includes(item))) return 'status-failed'
+  return 'status-pending'
+}
 
-function paymentLabel(state) {
-  const value = String(state || '').toUpperCase()
-  if (PAID_STATES.includes(value)) return 'Paid, held safely until delivery'
-  if (PAID_OUT_STATES.includes(value)) return 'Paid, released to the merchant'
-  if (REFUND_STATES.includes(value)) return 'Refunded to the customer'
-  return 'Not paid yet'
+function deliveryStatusClass(value) {
+  const status = String(value || '').toUpperCase()
+  if (status.includes('DELIVERED') && !status.includes('RTO')) return 'status-success'
+  if (['FAILED', 'CANCEL', 'RTO', 'DAMAGED', 'LOST', 'UNDELIVERED'].some((item) => status.includes(item))) return 'status-failed'
+  return 'status-pending'
+}
+
+function ConversationHistory({ messages = [], partyLabel }) {
+  if (messages.length === 0) return null
+  return (
+    <div className="ir-conversation-history">
+      <h4>Communication history</h4>
+      {messages.map((message, index) => {
+        const ours = message.sender === 'admin'
+        const sender = ours ? (message.by || 'Escrosafe') : partyLabel
+        return (
+          <Quote key={`${message.created_at || 'message'}-${index}`} by={sender} time={message.created_at} ours={ours}>
+            {message.body}
+          </Quote>
+        )
+      })}
+    </div>
+  )
 }
 
 export default function OrderCheckPage() {
   const [params] = useSearchParams()
   const order = (params.get('order') || '').trim()
   const [state, setState] = useState({ order: '', data: null, error: '' })
+  const [decisionActing, setDecisionActing] = useState(false)
+  const [decisionMessage, setDecisionMessage] = useState({ type: '', text: '' })
 
   useEffect(() => {
     let active = true
@@ -68,6 +92,12 @@ export default function OrderCheckPage() {
     }
   }, [order])
 
+  useEffect(() => {
+    if (!decisionMessage.text) return undefined
+    const timer = window.setTimeout(() => setDecisionMessage({ type: '', text: '' }), 4000)
+    return () => window.clearTimeout(timer)
+  }, [decisionMessage])
+
   const loading = state.order !== order
   const data = loading ? null : state.data
   const report = data?.report
@@ -75,6 +105,7 @@ export default function OrderCheckPage() {
   const customer = report?.customer
   const issues = data?.issues || []
   const contactMessages = data?.contact_messages || []
+  const merchantContactMessages = contactMessages.filter((message) => message.source === 'merchant')
   const customerNotes = (customer?.enquiries || []).flatMap((enquiry) => (enquiry.notes || []).map((note) => ({ ...note, ref: enquiry.enquiry_id })))
   const issueNotes = issues.flatMap((issue) => issue.notes.map((n) => ({ ...n, ref: issue.reference })))
   const customerTickets = data?.customer_issues || []
@@ -87,28 +118,90 @@ export default function OrderCheckPage() {
     ...contactNotes.map((m) => ({ note: m.internal_note, by: '', ref: 'Message', created_at: m.created_at })),
   ].map((n) => ({ ...n, source: n.ref }))
 
+  async function handleDecision(decision) {
+    if (!data?.pa_control?.vaultpay_order_id || decisionActing) return false
+    setDecisionActing(true)
+    setDecisionMessage({ type: '', text: '' })
+    try {
+      const result = await api.paOrderAction(data.pa_control.vaultpay_order_id, 'send-request', { decision })
+      setState((current) => ({
+        ...current,
+        data: current.data ? { ...current.data, pa_control: result.order } : current.data,
+      }))
+      setDecisionMessage({ type: 'success', text: `${decision === 'REFUND' ? 'Refund' : 'Release'} decision saved. You have 10 minutes to revoke it before the request is sent.` })
+      return true
+    } catch (error) {
+      setDecisionMessage({ type: 'error', text: error.message || 'The PA request could not be sent.' })
+      return false
+    } finally {
+      setDecisionActing(false)
+    }
+  }
+
+  async function handleRevokeDecision() {
+    if (!data?.pa_control?.vaultpay_order_id || decisionActing) return false
+    setDecisionActing(true)
+    setDecisionMessage({ type: '', text: '' })
+    try {
+      const result = await api.paOrderAction(data.pa_control.vaultpay_order_id, 'revoke-request', {})
+      setState((current) => ({ ...current, data: current.data ? { ...current.data, pa_control: result.order } : current.data }))
+      setDecisionMessage({ type: 'success', text: 'Decision revoked. You can now choose refund or release again.' })
+      return true
+    } catch (error) {
+      setDecisionMessage({ type: 'error', text: error.message || 'The decision could not be revoked.' })
+      return false
+    } finally {
+      setDecisionActing(false)
+    }
+  }
+
+  async function handleFinalizeDecision() {
+    if (!data?.pa_control?.vaultpay_order_id || decisionActing) return false
+    setDecisionActing(true)
+    try {
+      const result = await api.paOrderAction(data.pa_control.vaultpay_order_id, 'finalize-request', {})
+      setState((current) => ({ ...current, data: current.data ? { ...current.data, pa_control: result.order } : current.data }))
+      if (result.order.aggregator_request) setDecisionMessage({ type: 'success', text: 'The 10-minute window ended and the request was sent to PA Control.' })
+      return true
+    } catch (error) {
+      setDecisionMessage({ type: 'error', text: error.message || 'The scheduled request could not be finalized.' })
+      return false
+    } finally {
+      setDecisionActing(false)
+    }
+  }
+
   return (
     <div className="sr-page ir-page oc-page">
       <div className="ir-top">
         <h1 className="ir-heading">Order report</h1>
-        <button type="button" className="contact-reply-btn" onClick={() => window.print()} disabled={!data}>Print report</button>
+        <div className="ir-top-actions">
+          {data ? <OrderDecisionControls paControl={data.pa_control} paStatus={data.pa_status} acting={decisionActing} onDecision={handleDecision} onRevoke={handleRevokeDecision} onFinalize={handleFinalizeDecision} /> : null}
+          <button type="button" className="contact-reply-btn" onClick={() => window.print()} disabled={!data}>Print report</button>
+        </div>
       </div>
 
       {loading ? <p className="sr-empty">Checking the order...</p> : null}
       {!loading && state.error ? <div className="error-banner">{state.error}</div> : null}
+      {decisionMessage.text ? (
+        <div className={`needs-toast needs-toast-${decisionMessage.type === 'success' ? 'success' : 'danger'}`} role="status" aria-live="polite">
+          <span>{decisionMessage.text}</span>
+          <button type="button" onClick={() => setDecisionMessage({ type: '', text: '' })} aria-label="Dismiss notification">×</button>
+        </div>
+      ) : null}
 
       {data ? (
         <>
           <p className="ir-subtitle">
             <strong>Order ID :</strong> {data.order.merchant_order_id}
+            {data.order.payment_id ? <> · <strong>Payment ID :</strong> {data.order.payment_id}</> : null}
             {data.order.awb ? <> · <strong>AWB :</strong> {data.order.awb}</> : null}
           </p>
 
-          <div className="oc-tiles is-six">
-            <div className="oc-tile"><span>Courier</span><strong>{c.courier || 'NA'}</strong></div>
-            <div className="oc-tile"><span>Payment status</span><strong>{paymentLabel(data.order.payment_state) === 'Not paid yet' ? 'NA' : paymentLabel(data.order.payment_state)}</strong></div>
-            <div className="oc-tile"><span>PA status</span><strong>{data.pa_status || 'NA'}</strong></div>
-            <div className="oc-tile"><span>Delivery status</span><strong>{pretty(c.status) || 'No shipment'}</strong></div>
+          <div className="oc-tiles is-five">
+            <div className="oc-tile oc-courier-tile"><span>Courier</span><strong><CourierLabel courier={c.courier} /></strong></div>
+            <div className="oc-tile"><span>PA status</span><strong><span className={`status-pill ${paStatusClass(data.pa_status)}`}>{pretty(data.pa_status) || 'NA'}</span></strong></div>
+            <div className="oc-tile"><span>Delivery status</span><strong><span className={`status-pill ${deliveryStatusClass(c.status)}`}>{pretty(c.status) || 'No shipment'}</span></strong></div>
             <div className="oc-tile"><span>Order amount</span><strong>{formatAmount(data.order.amount, data.order.currency)}</strong></div>
             <div className="oc-tile"><span>Order date</span><strong>{formatDay(data.order.order_date)}</strong></div>
           </div>
@@ -130,13 +223,28 @@ export default function OrderCheckPage() {
                   </div>
                   <p className="ir-ticket-who">{data.merchant.name} · {issue.reference}</p>
                   <p className="ir-ticket-issue"><TagIcon />{issue.issue_type_label}</p>
-                  {issue.description ? <p className="ir-ticket-quote">“{issue.description}”</p> : null}
+                  {issue.messages?.length ? (
+                    <ConversationHistory messages={issue.messages} partyLabel={data.merchant.name || 'Merchant'} />
+                  ) : issue.description ? <p className="ir-ticket-quote">“{issue.description}”</p> : null}
                   <div className="ir-ticket-foot">
                     <span>{formatTime(issue.created_at)} · Merchant message</span>
                     <TicketChatLink reference={issue.reference}>Open chat ↓</TicketChatLink>
                   </div>
                 </section>
               ))}
+              {merchantContactMessages.length > 0 ? (
+                <section className="ir-ticket">
+                  <div className="ir-ticket-head"><h2>Other merchant messages</h2></div>
+                  <ConversationHistory
+                    messages={merchantContactMessages.map((message) => ({
+                      sender: 'merchant',
+                      body: message.message,
+                      created_at: message.created_at,
+                    }))}
+                    partyLabel={data.merchant.name || 'Merchant'}
+                  />
+                </section>
+              ) : null}
               <NotesBlock title="Merchant internal notes (only admins see these)" notes={merchantNotes} />
             </div>
 
@@ -156,7 +264,9 @@ export default function OrderCheckPage() {
                   </div>
                   <p className="ir-ticket-who">{ticket.customer_name || customer.name} · {ticket.reference}</p>
                   <p className="ir-ticket-issue"><TagIcon />{ticket.issue_type_label}</p>
-                  {ticket.description ? <p className="ir-ticket-quote">“{ticket.description}”</p> : null}
+                  {ticket.messages?.length ? (
+                    <ConversationHistory messages={ticket.messages} partyLabel={ticket.customer_name || customer.name || 'Customer'} />
+                  ) : ticket.description ? <p className="ir-ticket-quote">“{ticket.description}”</p> : null}
                   <div className="ir-ticket-foot">
                     <span>{formatTime(ticket.created_at)} · Customer message</span>
                     <TicketChatLink kind="customer" reference={ticket.reference}>Open chat ↓</TicketChatLink>

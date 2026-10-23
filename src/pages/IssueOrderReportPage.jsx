@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { api } from '../api/client'
+import CourierLabel from '../components/CourierLabel'
+import OrderDecisionControls from '../components/OrderDecisionControls'
 import TicketChatLink from '../components/TicketChatLink'
 import { NotesBlock, TagIcon } from '../components/TicketCardParts'
 
@@ -23,6 +25,20 @@ function pretty(value) {
     .replace(/_/g, ' ')
     .toLowerCase()
     .replace(/^\w/, (letter) => letter.toUpperCase())
+}
+
+function paStatusClass(value) {
+  const status = String(value || '').toUpperCase()
+  if (['SETTLED', 'RELEASED', 'PAYOUT_COMPLETED'].some((item) => status.includes(item))) return 'status-success'
+  if (['FAILED', 'CANCELLED', 'REFUNDED', 'REJECTED'].some((item) => status.includes(item))) return 'status-failed'
+  return 'status-pending'
+}
+
+function deliveryStatusClass(value) {
+  const status = String(value || '').toUpperCase()
+  if (status.includes('DELIVERED') && !status.includes('RTO')) return 'status-success'
+  if (['FAILED', 'CANCEL', 'RTO', 'DAMAGED', 'LOST', 'UNDELIVERED'].some((item) => status.includes(item))) return 'status-failed'
+  return 'status-pending'
 }
 
 function formatAmount(amount, currency) {
@@ -74,30 +90,6 @@ function Rows({ title, rows, columns, empty, hideWhenEmpty = false }) {
   )
 }
 
-const NOT_PAID = ['CREATED', 'PAYMENT_PENDING', 'AWAITING_PAYMENT', 'PENDING', 'FAILED', 'PAYMENT_FAILED']
-const HELD = ['PAYMENT_CAPTURED', 'CAPTURED', 'FUNDS_HELD', 'HELD', 'PAID']
-const PAID_OUT = ['SETTLED', 'RELEASED', 'PAYOUT_COMPLETED']
-const REFUNDED = ['REFUNDED', 'REFUND', 'REFUND_COMPLETED']
-
-// What the customer's own side of the payment looks like, worked out from the order and the payment ledger.
-function customerPayment(order, payment) {
-  const state = String(order.payment_state || '').toUpperCase()
-  const ledger = payment?.ledger || []
-  const sum = (rows) => rows.reduce((total, row) => total + Number(row.amount || 0), 0)
-  const paidRows = ledger.filter((row) => /capture|payment/i.test(row.entry_type || ''))
-  const refundRows = ledger.filter((row) => /refund/i.test(row.entry_type || ''))
-  const paidTotal = paidRows.length ? sum(paidRows) : null
-  const refundTotal = refundRows.length ? sum(refundRows) : null
-  const capturedAt = paidRows[0]?.created_at || (payment?.transitions || []).find((row) => HELD.includes(String(row.to_state || '').toUpperCase()))?.created_at || ''
-
-  let label = pretty(order.payment_state)
-  if (NOT_PAID.includes(state)) label = 'Not paid yet'
-  else if (HELD.includes(state)) label = 'Paid, held safely until delivery'
-  else if (PAID_OUT.includes(state)) label = 'Paid, released to the merchant'
-  else if (REFUNDED.includes(state)) label = 'Refunded to the customer'
-  return { label, paidTotal, refundTotal, capturedAt }
-}
-
 // One order's report: its status tiles, then the merchant and customer tickets side by side. A bulk issue picks the order with the order tabs above.
 // Dropdown to choose which order of a bulk issue the report below shows.
 function OrderPicker({ orders, value, onChange }) {
@@ -144,18 +136,16 @@ function OrderSection({ data }) {
   const c = data.courier
   const customer = data.customer
   const merchant = data.merchant
-  const paid = customerPayment(data.order, data.payment)
   // Merchant tickets are ISS-…; every other note (customer tickets, enquiries, messages) belongs to the customer side.
   const merchantNotes = (data.admin_notes || []).filter((item) => /^ISS-/.test(item.source || ''))
   const customerNotes = (data.admin_notes || []).filter((item) => !/^ISS-/.test(item.source || ''))
 
   return (
         <>
-          <div className="oc-tiles is-six">
-            <div className="oc-tile"><span>Courier</span><strong>{c.courier || 'NA'}</strong></div>
-            <div className="oc-tile"><span>Payment status</span><strong>{paid.label === 'Not paid yet' ? 'NA' : paid.label}</strong></div>
-            <div className="oc-tile"><span>PA status</span><strong>{data.now?.pa_status || 'NA'}</strong></div>
-            <div className="oc-tile"><span>Delivery status</span><strong>{data.order.delivery_status ? pretty(data.order.delivery_status) : 'No shipment'}</strong></div>
+          <div className="oc-tiles is-five">
+            <div className="oc-tile oc-courier-tile"><span>Courier</span><strong><CourierLabel courier={c.courier} /></strong></div>
+            <div className="oc-tile"><span>PA status</span><strong><span className={`status-pill ${paStatusClass(data.now?.pa_status)}`}>{pretty(data.now?.pa_status || 'NA')}</span></strong></div>
+            <div className="oc-tile"><span>Delivery status</span><strong><span className={`status-pill ${deliveryStatusClass(data.order.delivery_status)}`}>{data.order.delivery_status ? pretty(data.order.delivery_status) : 'No shipment'}</span></strong></div>
             <div className="oc-tile"><span>Order amount</span><strong>{formatAmount(data.order.amount, data.order.currency)}</strong></div>
             <div className="oc-tile"><span>Order date</span><strong>{formatDay(data.order.order_date)}</strong></div>
           </div>
@@ -289,6 +279,8 @@ export default function IssueOrderReportPage() {
   const orders = params.getAll('order').map((value) => value.trim()).filter(Boolean)
   const key = `${issueId}|${orders.join(',')}`
   const [state, setState] = useState({ key: '', reports: null, error: '' })
+  const [decisionActing, setDecisionActing] = useState(false)
+  const [decisionMessage, setDecisionMessage] = useState({ type: '', text: '' })
 
   useEffect(() => {
     let active = true
@@ -309,20 +301,91 @@ export default function IssueOrderReportPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key])
 
+  useEffect(() => {
+    if (!decisionMessage.text) return undefined
+    const timer = window.setTimeout(() => setDecisionMessage({ type: '', text: '' }), 4000)
+    return () => window.clearTimeout(timer)
+  }, [decisionMessage])
+
   const loading = state.key !== key
   const reports = loading ? null : state.reports
   const issue = reports?.[0]?.issue
   const selected = reports ? reports[Math.min(orderIndex, reports.length - 1)] : null
 
+  async function handleDecision(decision) {
+    if (!selected?.pa_control?.vaultpay_order_id || decisionActing) return false
+    setDecisionActing(true)
+    setDecisionMessage({ type: '', text: '' })
+    try {
+      const result = await api.paOrderAction(selected.pa_control.vaultpay_order_id, 'send-request', { decision })
+      setState((current) => ({
+        ...current,
+        reports: (current.reports || []).map((report) => (
+          report.pa_control?.vaultpay_order_id === result.order.vaultpay_order_id
+            ? { ...report, pa_control: result.order }
+            : report
+        )),
+      }))
+      setDecisionMessage({ type: 'success', text: `${decision === 'REFUND' ? 'Refund' : 'Release'} decision saved. You have 10 minutes to revoke it before the request is sent.` })
+      return true
+    } catch (error) {
+      setDecisionMessage({ type: 'error', text: error.message || 'The PA request could not be sent.' })
+      return false
+    } finally {
+      setDecisionActing(false)
+    }
+  }
+
+  async function runDecisionAction(action, successText) {
+    if (!selected?.pa_control?.vaultpay_order_id || decisionActing) return false
+    setDecisionActing(true)
+    setDecisionMessage({ type: '', text: '' })
+    try {
+      const result = await api.paOrderAction(selected.pa_control.vaultpay_order_id, action, {})
+      setState((current) => ({
+        ...current,
+        reports: (current.reports || []).map((report) => (
+          report.pa_control?.vaultpay_order_id === result.order.vaultpay_order_id
+            ? { ...report, pa_control: result.order }
+            : report
+        )),
+      }))
+      setDecisionMessage({ type: 'success', text: successText })
+      return true
+    } catch (error) {
+      setDecisionMessage({ type: 'error', text: error.message || 'The PA decision could not be updated.' })
+      return false
+    } finally {
+      setDecisionActing(false)
+    }
+  }
+
+  function handleRevokeDecision() {
+    return runDecisionAction('revoke-request', 'Decision revoked. You can now choose refund or release again.')
+  }
+
+  function handleFinalizeDecision() {
+    return runDecisionAction('finalize-request', 'The 10-minute window ended and the request was sent to PA Control.')
+  }
+
   return (
     <div className="sr-page ir-page">
       <div className="ir-top">
         <h1 className="ir-heading">Order report</h1>
-        <button type="button" className="contact-reply-btn" onClick={() => window.print()} disabled={!reports}>Print report</button>
+        <div className="ir-top-actions">
+          {selected ? <OrderDecisionControls paControl={selected.pa_control} paStatus={selected.now?.pa_status} acting={decisionActing} onDecision={handleDecision} onRevoke={handleRevokeDecision} onFinalize={handleFinalizeDecision} /> : null}
+          <button type="button" className="contact-reply-btn" onClick={() => window.print()} disabled={!reports}>Print report</button>
+        </div>
       </div>
 
       {loading ? <p className="sr-empty">Building the report...</p> : null}
       {!loading && state.error ? <div className="error-banner">{state.error}</div> : null}
+      {decisionMessage.text ? (
+        <div className={`needs-toast needs-toast-${decisionMessage.type === 'success' ? 'success' : 'danger'}`} role="status" aria-live="polite">
+          <span>{decisionMessage.text}</span>
+          <button type="button" onClick={() => setDecisionMessage({ type: '', text: '' })} aria-label="Dismiss notification">×</button>
+        </div>
+      ) : null}
 
       {reports ? (
         <>

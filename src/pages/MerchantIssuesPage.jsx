@@ -76,6 +76,7 @@ function OrdersModal({ row, onClose }) {
           <thead>
             <tr>
               <th>Order ID</th>
+              <th>Payment ID</th>
               <th>AWB number</th>
               <th>Courier</th>
               <th>Amount</th>
@@ -88,7 +89,8 @@ function OrdersModal({ row, onClose }) {
             {row.orders.map((order, index) => (
               <tr key={`${order.merchant_order_id}-${order.awb}`}>
                 <td><span className="cell-strong">{order.merchant_order_id || order.order_id}</span></td>
-                <td><span className="cell-muted">{order.awb || '-'}</span></td>
+                <td><span className="cell-strong">{order.payment_id || '-'}</span></td>
+                <td>{order.awb ? <Link className="orders-data-link" to={`/dashboard/order-check?order=${encodeURIComponent(order.awb)}`}>{order.awb}</Link> : '-'}</td>
                 <td>{order.courier || '-'}</td>
                 <td>{formatAmount(order.amount)}</td>
                 <td>{order.payment_state ? prettyStatus(order.payment_state) : '-'}</td>
@@ -462,7 +464,7 @@ export default function MerchantIssuesPage() {
                     <td><span className="cell-strong">{row.reference}</span></td>
                     <td><span className="cell-muted">{formatDate(row.created_at)}</span></td>
                     <td>
-                      <div className="cell-strong">{row.merchant_name}</div>
+                      <Link className="merchant-history-link" to={`/dashboard/merchants/${row.merchant_id}`}>{row.merchant_name}</Link>
                       <div className="cell-muted">{row.merchant_email}</div>
                     </td>
                     <td><span className="issue-type-cell">{row.issue_type_label}</span></td>

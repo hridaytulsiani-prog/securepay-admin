@@ -21,7 +21,7 @@ function destination(sectionKey, row) {
     case 'messages':
       return go(row.source === 'merchant' ? '/dashboard/merchant-queries' : '/dashboard/messages', row.email)
     case 'merchants':
-      return go('/dashboard/merchant-users', row.merchant_name)
+      return `/dashboard/merchants/${row.id}`
     case 'labels':
       return row.order_id ? go('/dashboard/orders', row.order_id) : null
     default:

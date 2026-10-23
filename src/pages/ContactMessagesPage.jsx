@@ -3,7 +3,7 @@
 // form on the merchant site's landing page). Each message is stored in the database; here the owner can
 // read it, search/filter, mark its status and keep an internal note.
 import { useCallback, useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '../api/client'
 import Modal from '../components/Modal'
 
@@ -22,6 +22,16 @@ const STATUS_PILL_CLASS = {
 
 function formatDate(value) {
   return value ? new Date(value).toLocaleString() : '-'
+}
+
+function initials(name) {
+  return String(name || '?')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase()
 }
 
 function defaultReplySubject(row) {
@@ -65,33 +75,55 @@ function MessageModal({ row, onClose, onChanged }) {
   }
 
   return (
-    <Modal title={`${row.source === 'merchant' ? 'Merchant query from' : 'Message from'} ${row.name}`} onClose={onClose} width={560}>
+    <Modal title={row.source === 'merchant' ? 'Merchant query' : 'Customer enquiry'} onClose={onClose} width={640}>
       <div className="contact-modal">
-        <div className="contact-modal-meta">
-          <span>{row.email}</span>
-          {row.topic && <span>Topic: {row.topic}</span>}
-          {row.order_id && <span>{row.source === 'merchant' ? 'Order / AWB' : 'Order'} {row.order_id}</span>}
-          <span>{formatDate(row.created_at)}</span>
+        <div className="contact-modal-identity">
+          <span className="contact-modal-avatar" aria-hidden="true">{initials(row.name)}</span>
+          <div className="contact-modal-person">
+            <span>{row.source === 'merchant' ? 'Merchant' : 'Customer'}</span>
+            <strong>{row.name}</strong>
+            <a href={`mailto:${row.email}`}>{row.email}</a>
+          </div>
+          <span className={`status-pill contact-modal-status-pill ${STATUS_PILL_CLASS[row.status] || ''}`}>
+            {row.status_label}
+          </span>
         </div>
 
-        <label className="contact-modal-status">
-          <span className="contact-detail-label">Status</span>
-          <select value={row.status} onChange={handleStatusChange} disabled={saving}>
-            <option value="new">New</option>
-            <option value="in_progress">In progress</option>
-            <option value="resolved">Resolved</option>
-          </select>
-        </label>
+        <div className="contact-modal-info-grid">
+          {row.order_id && (
+            <div>
+              <span>{row.source === 'merchant' ? 'Order / AWB' : 'Order ID'}</span>
+              <Link className="orders-data-link orders-payment-id-link" to={`/dashboard/order-check?order=${encodeURIComponent(row.order_id)}`}>
+                {row.order_id}
+              </Link>
+            </div>
+          )}
+          {row.topic && <div><span>Topic</span><strong>{row.topic}</strong></div>}
+          <div><span>Received</span><strong>{formatDate(row.created_at)}</strong></div>
+        </div>
 
-        <div>
-          <span className="contact-detail-label">Message</span>
+        <div className="contact-modal-message">
+          <div className="contact-modal-message-heading">
+            <span>Message</span>
+            <small>Original enquiry</small>
+          </div>
           <p className="contact-modal-text">{row.message}</p>
         </div>
 
         {error && <div className="error-banner">{error}</div>}
 
-        <div className="contact-reply-actions">
+        <div className="contact-modal-footer">
+          <label className="contact-modal-status">
+            <span className="contact-detail-label">Update status</span>
+            <select value={row.status} onChange={handleStatusChange} disabled={saving}>
+              <option value="new">New</option>
+              <option value="in_progress">In progress</option>
+              <option value="resolved">Resolved</option>
+            </select>
+            <small>{saving ? 'Saving status...' : 'Changes save automatically'}</small>
+          </label>
           <a className="contact-reply-btn" href={buildReplyLink(row)}>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6.5h16v11H4v-11Zm1.5 1.2L12 12.4l6.5-4.7" /></svg>
             Reply by email
           </a>
         </div>

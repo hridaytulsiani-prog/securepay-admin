@@ -4,7 +4,7 @@
 // money: NotesModal for the running investigation log, ResolutionModal for
 // the final refund/pay-merchant decision + reason.
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '../api/client'
 import DecisionHistoryModal from '../components/DecisionHistoryModal'
 import Modal from '../components/Modal'
@@ -30,6 +30,15 @@ function formatLabel(value) {
   return text ? text.toUpperCase() : '—'
 }
 
+function MerchantCell({ merchant_id: merchantId, merchant_name: name, merchant_email: email }) {
+  return (
+    <>
+      {merchantId ? <Link className="merchant-history-link" to={`/dashboard/merchants/${merchantId}`}>{name || '-'}</Link> : <div className="cell-strong">{name || '-'}</div>}
+      <div className="cell-muted">{email || ''}</div>
+    </>
+  )
+}
+
 // Notes, Details and Action are rendered separately from the picker's list below.
 const COLUMNS = [
   { key: 'enquiry_id', label: 'Enquiry ID', className: 'enquiry-col-id', render: (row) => <span className="cell-strong">{row.enquiry_id}</span> },
@@ -38,7 +47,8 @@ const COLUMNS = [
     key: 'merchant',
     label: 'Merchant',
     className: 'enquiry-col-merchant',
-    render: (row) => (
+    render: (row) => <MerchantCell {...row} />,
+    legacyRender: (row) => (
       <>
         <div className="cell-strong">{row.merchant_name || '—'}</div>
         <div className="cell-muted">{row.merchant_email || ''}</div>

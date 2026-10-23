@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '../api/client'
 import Modal from '../components/Modal'
 
@@ -117,7 +117,7 @@ export default function MerchantUsersPage() {
                 merchants.map((merchant) => (
                   <tr key={merchant.id}>
                     <td>
-                      <div className="cell-strong">{merchant.merchant_name}</div>
+                      <Link className="merchant-history-link" to={`/dashboard/merchants/${merchant.id}`}>{merchant.merchant_name}</Link>
                     </td>
                     <td>{merchant.merchant_email || '-'}</td>
                     <td>{merchant.username || '-'}</td>
@@ -125,6 +125,7 @@ export default function MerchantUsersPage() {
                     <td><span className="cell-muted">{formatDate(merchant.created_at)}</span></td>
                     <td>
                       <div className="merchant-user-actions">
+                        <Link className="table-action-link" to={`/dashboard/merchants/${merchant.id}`}>History</Link>
                         <button
                           type="button"
                           className="danger-link-button"

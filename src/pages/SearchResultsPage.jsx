@@ -90,14 +90,14 @@ function OrderCard({ order }) {
       <div className="sr-grid">
         <Field label="Amount">{formatAmount(order.amount, order.currency)}</Field>
         <Field label="Order date">{formatDate(order.order_date)}</Field>
-        <Field label="Merchant">{order.merchant_name}</Field>
+        <Field label="Merchant"><Link className="merchant-history-link" to={`/dashboard/merchants/${order.merchant_id}`}>{order.merchant_name}</Link></Field>
         <Field label="Merchant email">{order.merchant_email}</Field>
         <Field label="Customer">{order.customer_name}</Field>
         <Field label="Customer phone">{order.customer_phone}</Field>
         <Field label="Customer email">{order.customer_email}</Field>
         <Field label="Delivery address">{order.customer_address}</Field>
         <Field label="Courier">{order.courier}</Field>
-        <Field label="AWB number">{order.awb}</Field>
+        <Field label="AWB number">{order.awb ? <Link className="orders-data-link" to={`/dashboard/order-check?order=${encodeURIComponent(order.awb)}`}>{order.awb}</Link> : '-'}</Field>
         <Field label="Payment provider">{order.payment_provider}</Field>
         <Field label="Payment ID">{order.pa_payment_id}</Field>
       </div>
@@ -274,7 +274,7 @@ export default function SearchResultsPage() {
             rows={data.issues}
             columns={[
               { label: 'Ticket', render: (row) => <Link to={`/dashboard/merchant-issues?q=${encodeURIComponent(row.reference)}`}>{row.reference}</Link> },
-              { label: 'Merchant', render: (row) => row.merchant_name },
+              { label: 'Merchant', render: (row) => row.merchant_id ? <Link className="merchant-history-link" to={`/dashboard/merchants/${row.merchant_id}`}>{row.merchant_name}</Link> : row.merchant_name },
               { label: 'Type', render: (row) => row.issue_type_label },
               { label: 'Orders', render: (row) => row.order_count },
               { label: 'Status', render: (row) => row.status_label },
@@ -308,7 +308,7 @@ export default function SearchResultsPage() {
             title="Merchants"
             rows={data.merchants}
             columns={[
-              { label: 'Name', render: (row) => row.merchant_name },
+              { label: 'Name', render: (row) => <Link className="merchant-history-link" to={`/dashboard/merchants/${row.id}`}>{row.merchant_name}</Link> },
               { label: 'Email', render: (row) => row.merchant_email },
               { label: 'Phone', render: (row) => row.merchant_phone },
               { label: 'Joined', render: (row) => formatDate(row.created_at) },
@@ -318,7 +318,7 @@ export default function SearchResultsPage() {
             title="Label checks"
             rows={data.labels}
             columns={[
-              { label: 'AWB', render: (row) => row.awb || '-' },
+              { label: 'AWB', render: (row) => row.awb ? <Link to={`/dashboard/order-check?order=${encodeURIComponent(row.awb)}`}>{row.awb}</Link> : '-' },
               { label: 'Order', render: (row) => row.order_id || '-' },
               { label: 'Courier', render: (row) => row.courier || '-' },
               { label: 'File', render: (row) => row.file_name },

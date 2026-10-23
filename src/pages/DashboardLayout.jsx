@@ -15,6 +15,7 @@ const COLLAPSE_KEY = 'securepay_admin_sidebar_collapsed'
 const ICONS = {
   dashboard: <><rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" /></>,
   orders: <><path d="M6 3h12a1 1 0 0 1 1 1v16.5l-3-2-3 2-3-2-3 2V4a1 1 0 0 1 1-1Z" /><path d="M9 8h6M9 12h6" /></>,
+  completed: <><circle cx="12" cy="12" r="9" /><path d="m8 12 2.6 2.6L16.5 9" /></>,
   attention: <><path d="M12 3 2.5 20h19L12 3Z" /><path d="M12 10v4.5M12 17.5v.01" /></>,
   enquiries: <><path d="M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-5 4V6a1 1 0 0 1 1-1Z" /><path d="M9 10h6M9 13h4" /></>,
   pa: <><path d="M3 10 12 4l9 6" /><path d="M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18" /></>,
@@ -34,6 +35,7 @@ const NAV_GROUPS = [
     items: [
       { to: '/dashboard', end: true, label: 'Dashboard', icon: 'dashboard', permission: 'dashboard.view' },
       { to: '/dashboard/orders', label: 'Orders', icon: 'orders', permission: 'orders.view' },
+      { to: '/dashboard/completed-orders', label: 'Completed Orders', icon: 'completed', permission: 'orders.view' },
       { to: '/dashboard/needs-attention', label: 'Needs Attention', icon: 'attention', permission: 'needs_attention.view' },
       // Temporarily hidden from the admin UI; keep the route/page code available for later.
       // { to: '/dashboard/enquiries', label: 'Enquiries', icon: 'enquiries', permission: 'enquiries.view' },

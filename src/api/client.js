@@ -53,13 +53,14 @@ async function request(path, { method = 'GET', body, params, tokenType = 'admin'
   }
 
   const token = tokenType === 'partner' ? getPartnerToken() : getToken()
-  const headers = { 'Content-Type': 'application/json' }
+  const isFormData = body instanceof FormData
+  const headers = isFormData ? {} : { 'Content-Type': 'application/json' }
   if (token) headers.Authorization = `Bearer ${token}`
 
   const res = await fetch(url.toString(), {
     method,
     headers,
-    body: body ? JSON.stringify(body) : undefined,
+    body: body ? (isFormData ? body : JSON.stringify(body)) : undefined,
   })
 
   // DELETE responses (204) and network hiccups have no JSON body — treat
@@ -164,6 +165,7 @@ export const api = {
   auditLogs: (params) => request('/audit-logs/', { params }),
   decisionHistory: (params) => request('/decision-history/', { params }),
   merchants: (params) => request('/merchants/', { params }),
+  merchantHistory: (merchantId) => request(`/merchants/${merchantId}/history/`),
   deleteMerchant: (merchantId) => request(`/merchants/${merchantId}/`, { method: 'DELETE' }),
   orders: (params) => request('/orders/', { params }),
   needsAttention: (params) => request('/needs-attention/', { params }),
@@ -195,6 +197,7 @@ export const api = {
   updateCustomerIssue: (issueId, body) => request(`/customer-issues/${issueId}/`, { method: 'PATCH', body }),
   addCustomerIssueNote: (issueId, body) => request(`/customer-issues/${issueId}/notes/`, { method: 'POST', body }),
   sendCustomerIssueMessage: (issueId, body) => request(`/customer-issues/${issueId}/messages/`, { method: 'POST', body }),
+  notifyCustomerIssueMerchant: (issueId, body = {}) => request(`/customer-issues/${issueId}/notify-merchant/`, { method: 'POST', body }),
   merchantIssues: (params) => request('/merchant-issues/', { params }),
   updateMerchantIssue: (issueId, body) => request(`/merchant-issues/${issueId}/`, { method: 'PATCH', body }),
   orderCheck: (order) => request('/orders/check/', { params: { order } }),

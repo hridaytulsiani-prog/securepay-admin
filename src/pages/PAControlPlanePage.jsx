@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../api/client'
 
 function pretty(value) {
@@ -195,13 +196,16 @@ export default function PAControlPlanePage() {
           <table className="pa-table pa-production-table">
             <thead>
               <tr>
-                <th>Order</th>
+                <th>Order ID</th>
+                <th>Payment ID</th>
                 <th>Merchant</th>
                 <th>Customer</th>
                 <th>Amount</th>
                 <th>Payment</th>
+                {/* Kept for the future verification workflow.
                 <th>PDF Check</th>
                 <th>Courier Check</th>
+                */}
                 <th>Decision</th>
                 <th>Aggregator Request</th>
                 <th>PA Message</th>
@@ -210,7 +214,7 @@ export default function PAControlPlanePage() {
             </thead>
             <tbody>
               {orders.length === 0 ? (
-                <tr><td colSpan={11} className="empty-row">No real orders found for PA control.</td></tr>
+                <tr><td colSpan={10} className="empty-row">No real orders found for PA control.</td></tr>
               ) : visibleOrders.map((order) => (
                 <tr
                   key={order.vaultpay_order_id}
@@ -218,14 +222,32 @@ export default function PAControlPlanePage() {
                   onClick={() => setSelectedId(order.vaultpay_order_id)}
                 >
                   <td>
-                    <div className="cell-strong pa-order-id">{order.merchant_order_id}</div>
+                    <Link
+                      className="orders-data-link pa-order-id"
+                      to={`/dashboard/order-check?order=${encodeURIComponent(order.merchant_order_id || order.vaultpay_order_id)}`}
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      {order.merchant_order_id || order.vaultpay_order_id}
+                    </Link>
                   </td>
-                  <td>{order.merchant_name || '-'}</td>
+                  <td>
+                    {order.display_payment_id ? (
+                      <Link
+                        className="orders-data-link orders-payment-id-link pa-payment-id"
+                        to={`/dashboard/order-check?order=${encodeURIComponent(order.merchant_order_id || order.vaultpay_order_id)}`}
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        {order.display_payment_id}
+                      </Link>
+                    ) : '-'}
+                  </td>
+                  <td>{order.merchant_id ? <Link className="merchant-history-link" to={`/dashboard/merchants/${order.merchant_id}`} onClick={(event) => event.stopPropagation()}>{order.merchant_name || '-'}</Link> : order.merchant_name || '-'}</td>
                   <td>
                     <div>{order.customer?.name || '-'}</div>
                   </td>
                   <td>{formatMoney(order)}</td>
                   <td><span className={statusClass(order.payment_state)}>{pretty(order.payment_state)}</span></td>
+                  {/* Kept for the future verification workflow.
                   <td>
                     <span className={statusClass(order.pdf_verification?.status)}>
                       {pretty(order.pdf_verification?.status)}
@@ -236,11 +258,16 @@ export default function PAControlPlanePage() {
                       {pretty(order.courier_verification?.status)}
                     </span>
                   </td>
+                  */}
                   <td><span className={statusClass(order.decision_state)}>{pretty(order.decision_state)}</span></td>
                   <td>
                     {order.aggregator_request?.status ? (
                       <span className={statusClass(order.aggregator_request.status)}>
                         {pretty(order.aggregator_request.decision)} request {pretty(order.aggregator_request.status)}
+                      </span>
+                    ) : order.decision_window?.status === 'PENDING' ? (
+                      <span className="pa-pill pa-pill-warn">
+                        {pretty(order.decision_window.decision)} decision staged
                       </span>
                     ) : order.decision_state === 'MANUAL_REVIEW' ? (
                       <span className="cell-muted">Waiting for decision</span>

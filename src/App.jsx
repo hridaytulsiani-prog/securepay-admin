@@ -22,6 +22,7 @@ import AuditTrailPage from './pages/AuditTrailPage'
 import CreateAdminAccountPage from './pages/CreateAdminAccountPage'
 import AllUsersPage from './pages/AllUsersPage'
 import MerchantUsersPage from './pages/MerchantUsersPage'
+import MerchantHistoryPage from './pages/MerchantHistoryPage'
 import ContactMessagesPage from './pages/ContactMessagesPage'
 import MerchantIssuesPage from './pages/MerchantIssuesPage'
 import CustomerIssuesPage from './pages/CustomerIssuesPage'
@@ -51,6 +52,7 @@ export default function App() {
         >
           <Route index element={<OverviewPage />} />
           <Route path="orders" element={<OrdersPage />} />
+          <Route path="completed-orders" element={<OrdersPage completedOnly />} />
           <Route path="needs-attention" element={<NeedsAttentionPage />} />
           <Route path="enquiries" element={<EnquiriesPage />} />
           <Route path="aggregator-oversight" element={<OmniwareOversightPage />} />
@@ -66,6 +68,7 @@ export default function App() {
           <Route path="audit-trail" element={<AuditTrailPage />} />
           <Route path="all-users" element={<AllUsersPage />} />
           <Route path="merchant-users" element={<MerchantUsersPage />} />
+          <Route path="merchants/:merchantId" element={<MerchantHistoryPage />} />
           <Route path="messages" element={<ContactMessagesPage key="customer" source="customer" />} />
           <Route path="search" element={<SearchResultsPage />} />
           <Route path="merchant-issues" element={<MerchantIssuesPage />} />

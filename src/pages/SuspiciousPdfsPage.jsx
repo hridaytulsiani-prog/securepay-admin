@@ -1,5 +1,6 @@
 // Cross-merchant view of merchant-uploaded PDFs that failed forgery validation.
 import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../api/client'
 
 function formatDate(value) {
@@ -189,7 +190,7 @@ export default function SuspiciousPdfsPage() {
                       <span className="status-pill status-not_approved">Not Approved</span>
                     </td>
                     <td>
-                      <div className="cell-strong">{row.merchant__merchant_name || '-'}</div>
+                      <Link className="merchant-history-link" to={`/dashboard/merchants/${row.merchant_id}`}>{row.merchant__merchant_name || '-'}</Link>
                       <div className="cell-muted">{row.merchant__merchant_email || '-'}</div>
                       <div className="cell-muted">{row.merchant__merchant_phone || ''}</div>
                     </td>
@@ -200,7 +201,7 @@ export default function SuspiciousPdfsPage() {
                     <td>
                       <div className="cell-muted">{row.delivery_partner || '-'}</div>
                     </td>
-                    <td className="cell-muted">{row.awb || '-'}</td>
+                    <td className="cell-muted">{row.awb ? <Link className="orders-data-link" to={`/dashboard/order-check?order=${encodeURIComponent(row.awb)}`}>{row.awb}</Link> : '-'}</td>
                     <td className="cell-muted">{row.order_id || '-'}</td>
                     <td className="cell-muted">{formatDate(row.uploaded_at)}</td>
                   </tr>
