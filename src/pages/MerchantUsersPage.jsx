@@ -101,17 +101,20 @@ export default function MerchantUsersPage() {
                 <th>Username</th>
                 <th>Phone</th>
                 <th>Created At</th>
+                <th>Access Status</th>
+                <th>Restriction Period</th>
+                <th>Block Reason</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="empty-row">Loading merchants...</td>
+                  <td colSpan={9} className="empty-row">Loading merchants...</td>
                 </tr>
               ) : merchants.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="empty-row">No merchants found.</td>
+                  <td colSpan={9} className="empty-row">No merchants found.</td>
                 </tr>
               ) : (
                 merchants.map((merchant) => (
@@ -123,9 +126,16 @@ export default function MerchantUsersPage() {
                     <td>{merchant.username || '-'}</td>
                     <td>{merchant.merchant_phone || '-'}</td>
                     <td><span className="cell-muted">{formatDate(merchant.created_at)}</span></td>
+                    <td><span className={`merchant-access-status${merchant.is_blocked ? ' is-blocked' : ' is-active'}`}>{merchant.is_blocked ? merchant.access_status === 'permanent_block' ? 'Permanently blocked' : 'Temporarily blocked' : 'Active'}</span></td>
+                    <td><span className="cell-muted">{merchant.restriction_period || '—'}</span></td>
+                    <td><span className="merchant-block-reason" title={merchant.block_reason || ''}>{merchant.block_reason || '—'}</span></td>
                     <td>
                       <div className="merchant-user-actions">
-                        <Link className="table-action-link" to={`/dashboard/merchants/${merchant.id}`}>History</Link>
+                        {merchant.is_blocked ? (
+                          <Link className="table-action-link merchant-unblock-action" to={`/dashboard/merchant-risk/${merchant.id}`}>Unblock</Link>
+                        ) : (
+                          <button type="button" className="table-action-link merchant-unblock-action" disabled>Unblock</button>
+                        )}
                         <button
                           type="button"
                           className="danger-link-button"

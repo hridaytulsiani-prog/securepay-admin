@@ -335,6 +335,42 @@ function needsAttentionPath(row) {
   return `/dashboard/needs-attention?q=${encodedReference}&open=${encodedReference}`
 }
 
+function FlaggedMerchantIndicator({ row }) {
+  if (!row.merchant_is_flagged || !row.merchant_id) return null
+  const rate = Number(row.merchant_success_rate)
+  const threshold = Number(row.merchant_review_threshold) || 80
+  return (
+    <span className="orders-merchant-flag-wrap">
+      <button type="button" className="orders-merchant-flag" aria-label={`Flagged merchant: ${row.merchant__merchant_name}`}>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 21V3" /><path className="risk-flag-cloth" d="M6 5c3.2-2.1 5.6 1.7 11-.2v8.3c-5.4 1.9-7.8-1.9-11 .2Z" /></svg>
+      </button>
+      <span className="orders-merchant-flag-tooltip" role="tooltip">
+        <strong>Flagged merchant</strong>
+        <span>{Number.isFinite(rate) ? `${rate.toFixed(1)}% success rate` : 'Performance needs review'}. Below the {threshold}% review threshold.</span>
+        <Link to={`/dashboard/merchant-risk/${row.merchant_id}`}>View full details <b>→</b></Link>
+      </span>
+    </span>
+  )
+}
+
+function FlaggedCustomerIndicator({ row }) {
+  if (!row.customer_is_flagged || !row.customer_info_id) return null
+  const rate = Number(row.customer_success_rate)
+  const threshold = Number(row.customer_review_threshold) || 60
+  return (
+    <span className="orders-merchant-flag-wrap">
+      <button type="button" className="orders-merchant-flag" aria-label={`Flagged customer: ${row.customer_info__customer_name}`}>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 21V3" /><path className="risk-flag-cloth" d="M6 5c3.2-2.1 5.6 1.7 11-.2v8.3c-5.4 1.9-7.8-1.9-11 .2Z" /></svg>
+      </button>
+      <span className="orders-merchant-flag-tooltip" role="tooltip">
+        <strong>Flagged repeat customer</strong>
+        <span>{Number.isFinite(rate) ? `${rate.toFixed(1)}% clean order rate` : 'Behaviour needs review'} — below the {threshold}% review threshold.</span>
+        <Link to={`/dashboard/customer-performance/${row.customer_info_id}`}>View full details <b>→</b></Link>
+      </span>
+    </span>
+  )
+}
+
 // Column defs double as both the table header/cell renderer and the list
 // ColumnPicker offers to show/hide — keeping them in one array avoids the
 // two ever drifting out of sync.
@@ -364,13 +400,13 @@ const COLUMNS = [
     key: 'merchant',
     label: 'Merchant',
     render: (row) => row.merchant_id
-      ? <Link className="merchant-history-link cell-single-line" to={`/dashboard/merchants/${row.merchant_id}`}>{row.merchant__merchant_name || '-'}</Link>
-      : <span className="cell-strong cell-single-line">{row.merchant__merchant_name || '-'}</span>,
+      ? <span className="orders-merchant-cell"><FlaggedMerchantIndicator row={row} /><Link className="merchant-history-link cell-single-line" title={row.merchant__merchant_name || '-'} to={`/dashboard/merchants/${row.merchant_id}`}>{row.merchant__merchant_name || '-'}</Link></span>
+      : <span className="cell-strong cell-single-line" title={row.merchant__merchant_name || '-'}>{row.merchant__merchant_name || '-'}</span>,
   },
   {
     key: 'customer',
     label: 'Customer',
-    render: (row) => <span className="cell-single-line">{row.customer_info__customer_name}</span>,
+    render: (row) => <span className="orders-merchant-cell"><FlaggedCustomerIndicator row={row} /><span className="cell-single-line" title={row.customer_info__customer_name || '-'}>{row.customer_info__customer_name || '-'}</span></span>,
   },
   {
     key: 'phone',

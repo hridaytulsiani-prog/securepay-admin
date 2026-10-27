@@ -2,9 +2,10 @@
 // (sidebar toggle + account menu), and the active page rendered into <Outlet />.
 // Desktop: the sidebar can be collapsed to an icon-only rail (remembered in localStorage).
 // Phones / small tablets: the sidebar is a slide-in drawer opened with the top bar's menu button.
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import GlobalSearch from '../components/GlobalSearch'
+import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import { hasPermission } from '../utils/roles'
 import escrosafeLogo from '../assets/escrosafe-logo.png'
@@ -23,6 +24,7 @@ const ICONS = {
   audit: <><path d="M12 3 4 6v5.5c0 4.5 3.2 8 8 9.5 4.8-1.5 8-5 8-9.5V6l-8-3Z" /><path d="m9 12 2.2 2.2L15.5 10" /></>,
   users: <><circle cx="9" cy="8" r="3.2" /><path d="M3 20c.4-3.6 3-5.5 6-5.5s5.6 1.9 6 5.5" /><path d="M16 5.2a3 3 0 0 1 0 5.6M17.5 14.8c2 .6 3.2 2.3 3.5 5.2" /></>,
   merchants: <><path d="M4 9.5 5.5 4h13L20 9.5" /><path d="M4 9.5a2.7 2.7 0 0 0 5.3 0 2.7 2.7 0 0 0 5.4 0 2.7 2.7 0 0 0 5.3 0" /><path d="M5 12.5V20h14v-7.5M10 20v-4.5h4V20" /></>,
+  performance: <><path d="M4 19V9M10 19V5M16 19v-7M22 19V3" /><path d="M2 19h21" /></>,
   messages: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3.5 7 8.5 6 8.5-6" /></>,
   queries: <><circle cx="12" cy="12" r="9" /><path d="M9.6 9.5a2.5 2.5 0 1 1 3.4 2.3c-.7.3-1 .8-1 1.5M12 16.8v.01" /></>,
   issues: <><path d="M14.5 3.5a4 4 0 0 0-4.9 5L3.5 14.6a2 2 0 1 0 2.9 2.9l6.1-6.1a4 4 0 0 0 5-4.9l-2.6 2.6-2.2-.5-.5-2.2 2.3-2.9Z" /></>,
@@ -54,6 +56,8 @@ const NAV_GROUPS = [
     items: [
       { to: '/dashboard/all-users', label: 'Users', icon: 'users', permission: 'users.manage' },
       { to: '/dashboard/merchant-users', label: 'Merchants', icon: 'merchants', permission: 'users.manage' },
+      { to: '/dashboard/merchant-performance', label: 'Merchant Performance', icon: 'performance', permission: 'orders.view' },
+      { to: '/dashboard/customer-performance', label: 'Customer Performance', icon: 'performance', permission: 'orders.view' },
     ],
   },
   {
@@ -88,11 +92,20 @@ export default function DashboardLayout() {
   const navigate = useNavigate()
   const location = useLocation()
   const moreMenuRef = useRef(null)
+  const notificationRef = useRef(null)
   const [isMoreOpen, setIsMoreOpen] = useState(false)
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
+  const [riskNotifications, setRiskNotifications] = useState([])
   const [collapsed, setCollapsed] = useState(readCollapsed)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const displayName = admin?.username || 'Admin'
   const roleLabel = admin?.role_label || admin?.role || 'Admin'
+  const canViewMerchantRisk = hasPermission(admin, 'orders.view')
+
+  const loadRiskNotifications = useCallback(() => {
+    if (!canViewMerchantRisk) return
+    api.merchantRisk().then((data) => setRiskNotifications(data.results || [])).catch(() => {})
+  }, [canViewMerchantRisk])
 
   const groups = NAV_GROUPS.map((group) => ({
     ...group,
@@ -121,6 +134,21 @@ export default function DashboardLayout() {
       document.removeEventListener('keydown', closeOnEscape)
     }
   }, [isMoreOpen])
+
+  useEffect(() => {
+    loadRiskNotifications()
+    const timer = window.setInterval(loadRiskNotifications, 60000)
+    return () => window.clearInterval(timer)
+  }, [loadRiskNotifications])
+
+  useEffect(() => {
+    if (!isNotificationsOpen) return undefined
+    const close = (event) => {
+      if (!notificationRef.current?.contains(event.target)) setIsNotificationsOpen(false)
+    }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [isNotificationsOpen])
 
   // The phone drawer closes after choosing a page, and on Escape.
   useEffect(() => {
@@ -218,6 +246,34 @@ export default function DashboardLayout() {
           </button>
           <GlobalSearch />
           <div className="topbar-actions">
+            {canViewMerchantRisk ? <div className="risk-notifications" ref={notificationRef}>
+              <button
+                type="button"
+                className="risk-bell-button"
+                aria-label={`${riskNotifications.length} merchant risk notifications`}
+                aria-haspopup="menu"
+                aria-expanded={isNotificationsOpen}
+                onClick={() => {
+                  setIsNotificationsOpen((open) => !open)
+                  setIsMoreOpen(false)
+                  loadRiskNotifications()
+                }}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 8h18c0-1-3-1-3-8M10 21h4" /></svg>
+                {riskNotifications.length ? <span>{riskNotifications.length > 9 ? '9+' : riskNotifications.length}</span> : null}
+              </button>
+              {isNotificationsOpen ? <div className="risk-notification-menu" role="menu">
+                <div className="risk-notification-head"><div><strong>Merchant alerts</strong><span>Below 80% merchant success rate</span></div><b>{riskNotifications.length}</b></div>
+                <div className="risk-notification-list">
+                  {riskNotifications.length === 0 ? <div className="risk-notification-empty"><span>✓</span><p>No merchants need review.</p></div> : riskNotifications.slice(0, 6).map((item) => (
+                    <button type="button" key={item.merchant_id} role="menuitem" onClick={() => { setIsNotificationsOpen(false); navigate(`/dashboard/merchant-risk/${item.merchant_id}`) }}>
+                      <span className="risk-notification-icon">!</span><div><strong>{item.merchant_name}</strong><small>{item.success_rate.toFixed(1)}% success · {item.successful_orders}/{item.scored_orders} finalized payments settled</small></div><i>→</i>
+                    </button>
+                  ))}
+                </div>
+                <button type="button" className="risk-notification-all" onClick={() => { setIsNotificationsOpen(false); navigate('/dashboard/merchant-risk') }}>View all flagged merchants <span>→</span></button>
+              </div> : null}
+            </div> : null}
             <div className="nav-more" ref={moreMenuRef}>
               <button
                 type="button"

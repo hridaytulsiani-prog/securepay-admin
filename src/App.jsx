@@ -29,6 +29,8 @@ import CustomerIssuesPage from './pages/CustomerIssuesPage'
 import SearchResultsPage from './pages/SearchResultsPage'
 import IssueOrderReportPage from './pages/IssueOrderReportPage'
 import OrderCheckPage from './pages/OrderCheckPage'
+import MerchantRiskPage from './pages/MerchantRiskPage'
+import CustomerPerformancePage from './pages/CustomerPerformancePage'
 import { OmniwarePartnerLoginPage, OmniwarePartnerPortal } from './pages/OmniwarePartnerPortal'
 
 export default function App() {
@@ -69,6 +71,11 @@ export default function App() {
           <Route path="all-users" element={<AllUsersPage />} />
           <Route path="merchant-users" element={<MerchantUsersPage />} />
           <Route path="merchants/:merchantId" element={<MerchantHistoryPage />} />
+          <Route path="merchant-risk" element={<MerchantRiskPage />} />
+          <Route path="merchant-risk/:merchantId" element={<MerchantRiskPage />} />
+          <Route path="merchant-performance" element={<MerchantRiskPage showAll />} />
+          <Route path="customer-performance" element={<CustomerPerformancePage />} />
+          <Route path="customer-performance/:customerId" element={<CustomerPerformancePage />} />
           <Route path="messages" element={<ContactMessagesPage key="customer" source="customer" />} />
           <Route path="search" element={<SearchResultsPage />} />
           <Route path="merchant-issues" element={<MerchantIssuesPage />} />
