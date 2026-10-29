@@ -31,6 +31,7 @@ import IssueOrderReportPage from './pages/IssueOrderReportPage'
 import OrderCheckPage from './pages/OrderCheckPage'
 import MerchantRiskPage from './pages/MerchantRiskPage'
 import CustomerPerformancePage from './pages/CustomerPerformancePage'
+import OwnerOrderReviewsPage from './pages/OwnerOrderReviewsPage'
 import { OmniwarePartnerLoginPage, OmniwarePartnerPortal } from './pages/OmniwarePartnerPortal'
 
 export default function App() {
@@ -56,6 +57,7 @@ export default function App() {
           <Route path="orders" element={<OrdersPage />} />
           <Route path="completed-orders" element={<OrdersPage completedOnly />} />
           <Route path="needs-attention" element={<NeedsAttentionPage />} />
+          <Route path="owner-reviews" element={<OwnerOrderReviewsPage />} />
           <Route path="enquiries" element={<EnquiriesPage />} />
           <Route path="aggregator-oversight" element={<OmniwareOversightPage />} />
           <Route path="pa-control" element={<PAControlPlanePage />} />

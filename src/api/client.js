@@ -76,7 +76,9 @@ async function request(path, { method = 'GET', body, params, tokenType = 'admin'
     const message = (data && data.error) || `Request failed with status ${res.status}`
     const error = new Error(message)
     error.status = res.status
-    if (res.status === 401 || res.status === 403) {
+    // A 401 means the session is invalid. A 403 only means this valid user
+    // lacks permission for this particular action and must never log them out.
+    if (res.status === 401) {
       if (tokenType === 'partner') {
         setPartnerToken(null)
         window.dispatchEvent(new Event('securepay-partner-auth-expired'))
@@ -140,7 +142,7 @@ async function uploadFile(path, file, { tokenType = 'admin' } = {}) {
     const message = (data && data.error) || `Request failed with status ${res.status}`
     const error = new Error(message)
     error.status = res.status
-    if (res.status === 401 || res.status === 403) {
+    if (res.status === 401) {
       setToken(null)
       window.dispatchEvent(new Event('securepay-admin-auth-expired'))
     }
@@ -185,6 +187,10 @@ export const api = {
   paCreateOrder: (body) => request('/pa-control/orders/', { method: 'POST', body }),
   paOrderAction: (vaultpayOrderId, action, body) =>
     request(`/pa-control/orders/${vaultpayOrderId}/${action}/`, { method: 'POST', body }),
+  ownerReviewers: () => request('/owner-reviews/owners/'),
+  ownerDecisionReviews: (params) => request('/owner-reviews/', { params }),
+  createOwnerDecisionReview: (body) => request('/owner-reviews/', { method: 'POST', body }),
+  decideOwnerReview: (reviewId, body) => request(`/owner-reviews/${reviewId}/decision/`, { method: 'POST', body }),
   paEvidenceReport: async (token) => {
     const res = await fetch(`${API_BASE_URL}/adminpanel/pa-control/evidence/${token}/`)
     const data = await res.json().catch(() => null)

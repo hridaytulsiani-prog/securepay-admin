@@ -7,6 +7,8 @@ import CourierLabel from '../components/CourierLabel'
 import OrderDecisionControls from '../components/OrderDecisionControls'
 import TicketChatLink from '../components/TicketChatLink'
 import { NotesBlock, TagIcon } from '../components/TicketCardParts'
+import { useAuth } from '../context/AuthContext'
+import { ROLE_OWNER } from '../utils/roles'
 
 function formatDate(value) {
   return value ? new Date(value).toLocaleString() : '-'
@@ -272,6 +274,7 @@ function OrderSection({ data }) {
 }
 
 export default function IssueOrderReportPage() {
+  const { admin } = useAuth()
   const [orderIndex, setOrderIndex] = useState(0)
   const { issueId } = useParams()
   const [params] = useSearchParams()
@@ -281,6 +284,7 @@ export default function IssueOrderReportPage() {
   const [state, setState] = useState({ key: '', reports: null, error: '' })
   const [decisionActing, setDecisionActing] = useState(false)
   const [decisionMessage, setDecisionMessage] = useState({ type: '', text: '' })
+  const [owners, setOwners] = useState([])
 
   useEffect(() => {
     let active = true
@@ -311,12 +315,40 @@ export default function IssueOrderReportPage() {
   const reports = loading ? null : state.reports
   const issue = reports?.[0]?.issue
   const selected = reports ? reports[Math.min(orderIndex, reports.length - 1)] : null
+  const requiresOwnerReview = Boolean(selected?.pa_control?.owner_review_required && admin?.role !== ROLE_OWNER)
 
-  async function handleDecision(decision) {
+  useEffect(() => {
+    if (!requiresOwnerReview) return undefined
+    let active = true
+    api.ownerReviewers()
+      .then((data) => active && setOwners(data.results || []))
+      .catch((error) => active && setDecisionMessage({ type: 'error', text: error.message }))
+    return () => { active = false }
+  }, [requiresOwnerReview])
+
+  async function handleDecision(decision, ownerId) {
     if (!selected?.pa_control?.vaultpay_order_id || decisionActing) return false
     setDecisionActing(true)
     setDecisionMessage({ type: '', text: '' })
     try {
+      if (requiresOwnerReview) {
+        const result = await api.createOwnerDecisionReview({
+          vaultpay_order_id: selected.pa_control.vaultpay_order_id,
+          decision,
+          owner_id: ownerId,
+          issue_id: issueId,
+        })
+        setState((current) => ({
+          ...current,
+          reports: (current.reports || []).map((report) => (
+            report.pa_control?.vaultpay_order_id === selected.pa_control.vaultpay_order_id
+              ? { ...report, pa_control: { ...report.pa_control, owner_review: result.review } }
+              : report
+          )),
+        }))
+        setDecisionMessage({ type: 'success', text: `Sent to ${result.review.assigned_owner.username} for owner approval.` })
+        return true
+      }
       const result = await api.paOrderAction(selected.pa_control.vaultpay_order_id, 'send-request', { decision })
       setState((current) => ({
         ...current,
@@ -373,7 +405,7 @@ export default function IssueOrderReportPage() {
       <div className="ir-top">
         <h1 className="ir-heading">Order report</h1>
         <div className="ir-top-actions">
-          {selected ? <OrderDecisionControls paControl={selected.pa_control} paStatus={selected.now?.pa_status} acting={decisionActing} onDecision={handleDecision} onRevoke={handleRevokeDecision} onFinalize={handleFinalizeDecision} /> : null}
+          {selected ? <OrderDecisionControls paControl={selected.pa_control} paStatus={selected.now?.pa_status} acting={decisionActing} onDecision={handleDecision} onRevoke={handleRevokeDecision} onFinalize={handleFinalizeDecision} requiresOwnerReview={requiresOwnerReview} owners={owners} /> : null}
           <button type="button" className="contact-reply-btn" onClick={() => window.print()} disabled={!reports}>Print report</button>
         </div>
       </div>
